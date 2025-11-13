@@ -20,7 +20,7 @@ jobs:
           # or the default GITHUB_TOKEN with elevated permissions,
           # and fetch the full history (depth: 0) for rebasing
           token: ${{ secrets.REBASE_PAT }}
-          ref: main
+          fetch-depth: 0
 
       - name: 🔄 Checkout Dev Branch
         run: git checkout dev
