@@ -1,0 +1,84 @@
+# .github/workflows/merged-workflow.yml
+
+name: CI/CD Pipeline
+
+# Combine triggers from both original files:
+# 1. Trigger for Auto Rebase (on merged PR to main)
+# 2. Trigger for Clean Notebooks (on push to dev branch)
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - main # Or your default branch name
+  push:
+    branches:
+      - dev
+
+# Set permissions for the default GITHUB_TOKEN (needed for the clean_notebooks job)
+permissions:
+  contents: write
+
+jobs:
+  # --- Job 1: Auto Rebase Dev Branch (from auto-rebase-dev.yml) ---
+  rebase:
+    # Only run the job if the PR was actually merged into 'main'
+    if: github.event_name == 'pull_request' && github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: ⬇️ Checkout Main Branch
+        uses: actions/checkout@v4
+        with:
+          # A Personal Access Token (PAT) with 'write' access is needed
+          # for the force push operation in the subsequent steps.
+          token: ${{ secrets.REBASE_PAT }}
+          fetch-depth: 0
+
+      - name: 🔄 Checkout Dev Branch
+        run: git checkout dev
+
+      - name: ⚙️ Rebase Dev onto Main
+        run: |
+          git fetch origin dev
+          git reset --hard origin/dev
+          git rebase main
+
+      - name: ⬆️ Force Push Rebased Dev Branch
+        run: git push --force
+
+  # --- Job 2: Clean Jupyter Notebooks Outputs (from clean-notebooks.yml) ---
+  clean_notebooks:
+    # Only run this job on a 'push' event to the 'dev' branch
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install nbstripout
+        run: pip install nbstripout
+
+      - name: Strip outputs from notebooks
+        run: find . -name "*.ipynb" -print0 | xargs -0 -n1 nbstripout
+
+      - name: Check for and Commit cleaned notebooks
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add '*.ipynb'
+          
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: Clean notebook outputs (automated by CI) [skip ci]"
+            # The push works because of the top-level 'permissions: contents: write'
+            git push
+          else
+            echo "No changes detected. Notebooks were already clean."
+          fi
