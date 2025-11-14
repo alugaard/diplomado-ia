@@ -13,20 +13,19 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v3
       with:
-        fetch-depth: 0 
+        fetch-depth: 0
 
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.x'
 
-    - name: Install nbstripout
-      run: pip install nbstripout
+    - name: Install nbconvert
+      run: pip install nbconvert
 
     - name: Strip outputs from notebooks
       run: |
-        nbstripout --install
-        git ls-files '*.ipynb' | xargs -I{} nbstripout {} --clear-output
+        find . -name "*.ipynb" -print0 | xargs -0 -n1 jupyter nbconvert --ClearOutputPreprocessor.enabled=True --inplace
 
     - name: Commit cleaned notebooks if any changes
       run: |
