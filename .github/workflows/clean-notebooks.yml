@@ -1,0 +1,41 @@
+name: Clean Jupyter Notebooks Outputs
+
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  clean_notebooks:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0 
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
+
+    - name: Install nbstripout
+      run: pip install nbstripout
+
+    - name: Strip outputs from notebooks
+      run: |
+        nbstripout --install
+        git ls-files '*.ipynb' | xargs -I{} nbstripout --strip-file "{}"
+
+    - name: Commit cleaned notebooks if any changes
+      run: |
+        git config --global user.name 'github-actions'
+        git config --global user.email 'github-actions@github.com'
+        git add '*.ipynb'
+        if ! git diff --cached --quiet; then
+          git commit -m "Clean notebook outputs by GitHub Action"
+          git push
+        else
+          echo "No changes to commit"
+        fi
