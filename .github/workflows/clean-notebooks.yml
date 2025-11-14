@@ -35,14 +35,10 @@ jobs:
         git config --global user.name 'github-actions'
         git config --global user.email 'github-actions@github.com'
 
-        echo "Before changing remote URL:"
-        git remote -v
-
-        # Re-set remote URL with token to authenticate push
         git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git
 
-        echo "After changing remote URL:"
-        git remote -v
+        # Disable credential helper to avoid cached github-actions bot creds
+        git config --global --unset credential.helper || true
 
         git add '*.ipynb'
         git status
@@ -56,4 +52,3 @@ jobs:
         else
           echo "No changes to commit"
         fi
-
