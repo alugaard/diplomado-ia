@@ -27,14 +27,14 @@ jobs:
         with:
           python-version: '3.x'
 
-      - name: Install nbconvert
-        # Using nbconvert for stripping is correct and standard
-        run: pip install nbconvert
+      - name: Install nbstripout
+        # Switched to nbstripout for better notebook normalization and minimal dependencies
+        run: pip install nbstripout
 
       - name: Strip outputs from notebooks
-        # Find all ipynb files and run nbconvert's ClearOutputPreprocessor in-place
+        # Find all ipynb files and run nbstripout in-place for the most thorough cleanup
         run: |
-          find . -name "*.ipynb" -print0 | xargs -0 -n1 jupyter nbconvert --ClearOutputPreprocessor.enabled=True --inplace
+          find . -name "*.ipynb" -print0 | xargs -0 -n1 nbstripout
 
       - name: Check for and Commit cleaned notebooks
         # Use the standard actions checkout method for committing changes
