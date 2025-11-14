@@ -30,14 +30,30 @@ jobs:
     - name: Commit cleaned notebooks if any changes
       env:
         GH_TOKEN: ${{ secrets.REBASE_PAT }}
+        GITHUB_REF: ${{ github.ref }}
       run: |
         git config --global user.name 'github-actions'
         git config --global user.email 'github-actions@github.com'
+
+        echo "Before changing remote URL:"
+        git remote -v
+
+        # Re-set remote URL with token to authenticate push
         git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git
+
+        echo "After changing remote URL:"
+        git remote -v
+
         git add '*.ipynb'
+        git status
+        git diff --cached
+
         if ! git diff --cached --quiet; then
           git commit -m "Clean notebook outputs by GitHub Action"
-          git push origin ${{ github.ref_name }}
+          BRANCH_NAME=$(echo "${GITHUB_REF#refs/heads/}")
+          echo "Pushing to branch: $BRANCH_NAME"
+          git push origin "$BRANCH_NAME"
         else
           echo "No changes to commit"
         fi
+
