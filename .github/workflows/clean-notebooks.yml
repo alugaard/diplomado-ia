@@ -26,7 +26,7 @@ jobs:
     - name: Strip outputs from notebooks
       run: |
         nbstripout --install
-        git ls-files '*.ipynb' | xargs -I{} nbstripout --strip-file "{}"
+        git ls-files '*.ipynb' | xargs -I{} nbstripout {} --clear-output
 
     - name: Commit cleaned notebooks if any changes
       run: |
