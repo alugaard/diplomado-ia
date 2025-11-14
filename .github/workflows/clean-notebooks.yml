@@ -1,0 +1,58 @@
+name: Clean Jupyter Notebooks Outputs
+
+# This workflow is triggered on every push to the 'dev' branch
+on:
+  push:
+    branches:
+      - dev
+
+# Set permissions for the default GITHUB_TOKEN
+# This is crucial: it grants the workflow permission to write back to the repo.
+permissions:
+  contents: write
+
+jobs:
+  clean_notebooks:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        # Use fetch-depth: 0 to get the full history required for pushing back
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install nbconvert
+        # Using nbconvert for stripping is correct and standard
+        run: pip install nbconvert
+
+      - name: Strip outputs from notebooks
+        # Find all ipynb files and run nbconvert's ClearOutputPreprocessor in-place
+        run: |
+          find . -name "*.ipynb" -print0 | xargs -0 -n1 jupyter nbconvert --ClearOutputPreprocessor.enabled=True --inplace
+
+      - name: Check for and Commit cleaned notebooks
+        # Use the standard actions checkout method for committing changes
+        run: |
+          # 1. Configure the identity of the commit bot
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          # 2. Add cleaned files
+          git add '*.ipynb'
+
+          # 3. Check if there are any changes staged (i.e., if outputs were actually stripped)
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: Clean notebook outputs (automated by CI) [skip ci]"
+            
+            # The GITHUB_TOKEN is automatically available via the 'github' context
+            # We use the built-in GITHUB_TOKEN which has 'contents: write' from the permission block
+            git push
+          else
+            echo "No changes detected. Notebooks were already clean."
+          fi
