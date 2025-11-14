@@ -28,13 +28,16 @@ jobs:
         find . -name "*.ipynb" -print0 | xargs -0 -n1 jupyter nbconvert --ClearOutputPreprocessor.enabled=True --inplace
 
     - name: Commit cleaned notebooks if any changes
+      env:
+        GH_TOKEN: ${{ secrets.REBASE_PAT }}
       run: |
         git config --global user.name 'github-actions'
         git config --global user.email 'github-actions@github.com'
+        git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git
         git add '*.ipynb'
         if ! git diff --cached --quiet; then
           git commit -m "Clean notebook outputs by GitHub Action"
-          git push
+          git push origin ${{ github.ref_name }}
         else
           echo "No changes to commit"
         fi
