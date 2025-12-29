@@ -1,0 +1,7 @@
+- [ ] Verify Interactive Flow
+    - [ ] Refresh page -> Checks cleared
+    - [ ] Check 'Previsualizar' -> No View Change
+    - [ ] Click 'Aceptar' -> View Changes to Table, Checks Disabled
+    - [ ] Click 'Restaurar' -> Checks Enabled, View Stays Table
+    - [ ] Uncheck 'Previsualizar' -> No View Change
+    - [ ] Click 'Aceptar' -> View Changes to Drop Zone, Checks Disabled

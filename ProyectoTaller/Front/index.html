@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cargas</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+
+<body>
+
+    <header class="top-nav">
+        <nav>
+            <button class="nav-tab active">Cargas</button>
+            <button class="nav-tab">Dashboards</button>
+            <button class="nav-tab">Historial</button>
+        </nav>
+    </header>
+
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-section">
+                <h3>Opciones</h3>
+                <label class="checkbox-wrapper">
+                    <input type="checkbox" name="previsualizar">
+                    <span class="custom-checkbox"></span>
+                    Previsualizar
+                </label>
+                <label class="checkbox-wrapper">
+                    <input type="checkbox" name="clasificar" checked>
+                    <span class="custom-checkbox"></span>
+                    Clasificar
+                </label>
+                <label class="checkbox-wrapper">
+                    <input type="checkbox" name="descargar" checked>
+                    <span class="custom-checkbox"></span>
+                    Descargar
+                </label>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>Modelos predictivos</h3>
+                <label class="checkbox-wrapper">
+                    <input type="checkbox" name="custom" checked>
+                    <span class="custom-checkbox"></span>
+                    Custom
+                </label>
+                <label class="checkbox-wrapper">
+                    <input type="checkbox" name="chatgpt">
+                    <span class="custom-checkbox"></span>
+                    Chat GPT
+                </label>
+                <label class="checkbox-wrapper">
+                    <input type="checkbox" name="gemini">
+                    <span class="custom-checkbox"></span>
+                    Gemini
+                </label>
+            </div>
+
+            <div class="sidebar-actions">
+                <button class="btn btn-primary">Aceptar</button>
+                <button class="btn btn-secondary">Restaurar</button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="content-header">
+                <div class="mode-toggle">
+                    <button class="mode-btn">Manual</button>
+                    <button class="mode-btn active">Archivo</button>
+                </div>
+            </div>
+
+            <div class="work-area">
+                <!-- Drop Zone State (Mockup 1) -->
+                <div class="drop-zone" id="dropZone">
+                    <div class="drop-zone-content">
+                        <div class="plus-icon" id="uploadTrigger">+</div>
+                        <p>Arrastrar o cargar archivo</p>
+                        <input type="file" id="fileInput" accept=".csv" hidden>
+                    </div>
+                </div>
+
+                <!-- Table Result State (Mockup 2) - Initially Hidden -->
+                <!-- Use 'display: none' in CSS or toggle class to show -->
+                <div class="results-table-container hidden" id="resultsTable">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>País</th>
+                                <th>Comentario</th>
+                                <th>Nota</th>
+                                <th>Clasificación</th>
+                                <th><button id="addManualRowBtn" class="header-add-btn">+</button></th>
+                            </tr>
+                        </thead>
+                        <tbody id="manualTableBody">
+                            <!-- Rows will be added here dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- CSV Preview Table Container -->
+                <div class="results-table-container hidden" id="csvPreviewTable">
+                    <table class="data-table" id="csvTableContent">
+                        <!-- CSV Data will be injected here -->
+                    </table>
+                    <div class="pagination-controls" id="paginationControls">
+                        <button id="prevPage" class="pagination-btn" disabled>&lt; Anterior</button>
+                        <span id="pageIndicator">Página 1</span>
+                        <button id="nextPage" class="pagination-btn">Siguiente &gt;</button>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
