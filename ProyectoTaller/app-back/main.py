@@ -63,7 +63,7 @@ def predict_csv():
     for i, texto in enumerate(comentarios):
         item = {"comentario": texto, "prediccion": preds[i]}
         if probas is not None:
-            item["probabilidades"] = {class_names[j]: float(probas[i][j]) for j in range(len(class_names))}
+            item["probabilidad"] = {class_names[j]: float(probas[i][j]) for j in range(len(class_names))}
         resultados.append(item)
     
     return jsonify(resultados), 200
