@@ -28,3 +28,7 @@ sh dependencias.sh
 conda activate nps_api
 python main.py
 ```
+
+## Convertir csv a base64 para probar back en postman
+En app-back/TransformaCsvABase64/
+Ejecutar python converter.py , el cual convertira nuestro archivo escuestas.csv a un base64.
