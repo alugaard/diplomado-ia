@@ -31,7 +31,7 @@ conda activate nps_api
 # joblib → cargar modelo .pkl
 # scikit-learn → TF-IDF + Logistic Regression
 # numpy, scipy → operaciones numéricas usadas internamente
-conda install flask joblib scikit-learn numpy scipy pandas requests openai  -y
+conda install flask joblib scikit-learn numpy scipy pandas requests openai flask-cors -y
 
 
 # ============================================================
