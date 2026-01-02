@@ -5,6 +5,12 @@ import base64
 import io
 import pandas as pd
 
+##OPENAI
+import requests
+from openai import OpenAI
+from pydantic import BaseModel
+import json
+
 app = Flask(__name__)
 
 # Pruebas unitarias
@@ -67,6 +73,34 @@ def predict_csv():
         resultados.append(item)
     
     return jsonify(resultados), 200
+
+@app.route("/predict_openai", methods=["POST"])
+def openAiUso():
+    data = request.get_json(silent=True) or {}
+    comentario = data.get("comentario", "")
+
+    if not isinstance(comentario, str) or comentario.strip() == "":
+        return jsonify({"error": "Debes enviar 'comentario' como string no vacío"}), 400
+    API_KEY = "sk-xePE_4Bi13W2LnR--EG83Q"
+    url = "https://models.villena.cl/v1/responses"
+
+    prompt="Eres un experto en clasificación de textos en redes sociales. Tu tarea es leer un tweet en español y asignarlo a una y solo una de las siguientes categorías: odio, incivilidad o normal. Odio: cualquier expresión que promueva o incite a la discriminación, la hostilidad o la violencia hacia una persona o grupo en una relación asimétrica de poder, por razones como raza, etnia, género, orientación sexual, religión, nacionalidad, discapacidad u otra característica similar. Incivilidad: cualquier comportamiento o actitud que rompa las normas de respeto, cortesía o consideración entre personas, incluyendo insultos, ataques personales, sarcasmo, desprecio u otras formas de agresión verbal que no constituyen discurso de odio. Normal: expresiones que no contienen hostilidad, ataques, incivilidad ni discurso de odio. Debes responder solo con una de estas tres palabras: odio, incivilidad, normal. No entregues explicaciones ni texto adicional. Ejemplos de estos serian. La persona que me atendio tiene un problemas de actitud. Clasificación: incivilidad. La forma en que actuo estuvo bien. Los migrantes son una plaga que debería ser expulsada. Clasificación: odio . Eres un imbécil, no sabes nada. Clasificación: incivilidad. Hoy cociné por primera vez pastel de choclo y quedó buenísimo. Clasificación: normal. ¿Alguien sabe si mañana llueve en Santiago?. Clasificación: normal. Gracias a todos por el apoyo estos días, se valora mucho. Clasificación:normal. Este es el twets: "
+    prompt=prompt+comentario
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {API_KEY}"
+    }
+
+    data = {
+        "model": "openai/gpt-5-nano",
+        "input": prompt,
+    }
+
+    response = requests.post(url, headers=headers, json=data)
+    data = response.json()
+    print("respuesta de openAI: ")
+    print(data)
+    return jsonify(data["output"][1]["content"][0]["text"]), 200
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=7002, debug=True)
