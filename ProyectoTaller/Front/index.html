@@ -72,14 +72,14 @@
         <main class="main-content">
             <div class="content-header">
                 <div class="mode-toggle">
-                    <button class="mode-btn">Manual</button>
-                    <button class="mode-btn active">Archivo</button>
+                    <button class="mode-btn active">Manual</button>
+                    <button class="mode-btn">Archivo</button>
                 </div>
             </div>
 
             <div class="work-area">
                 <!-- Drop Zone State (Mockup 1) -->
-                <div class="drop-zone" id="dropZone">
+                <div class="drop-zone hidden" id="dropZone">
                     <div class="drop-zone-content">
                         <div class="plus-icon" id="uploadTrigger">+</div>
                         <p>Arrastrar o cargar archivo</p>
@@ -89,21 +89,37 @@
 
                 <!-- Table Result State (Mockup 2) - Initially Hidden -->
                 <!-- Use 'display: none' in CSS or toggle class to show -->
-                <div class="results-table-container hidden" id="resultsTable">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>País</th>
-                                <th>Comentario</th>
-                                <th>Nota</th>
-                                <th>Clasificación</th>
-                                <th><button id="addManualRowBtn" class="header-add-btn">+</button></th>
-                            </tr>
-                        </thead>
-                        <tbody id="manualTableBody">
-                            <!-- Rows will be added here dynamically -->
-                        </tbody>
-                    </table>
+                <div class="results-table-container" id="resultsTable">
+                    <div style="display: flex; align-items: flex-start; gap: 10px;">
+                        <table class="data-table" style="flex: 1;">
+                            <thead>
+                                <tr>
+                                    <th style="width: 70%;">Comentario</th>
+                                    <th style="width: 30%;">Clasificación</th>
+                                    <th style="width: 50px;"><button id="addManualRowBtn"
+                                            class="header-add-btn">+</button></th>
+                                </tr>
+                            </thead>
+                            <tbody id="manualTableBody">
+                                <!-- Rows will be added here dynamically -->
+                            </tbody>
+                        </table>
+
+                        <!-- Side Actions Table for Alignment -->
+                        <table class="data-table" style="width: auto; background: transparent; border: none;">
+                            <thead style="background: transparent;">
+                                <tr>
+                                    <th style="background: transparent; border: none; padding: 10px 10px;">
+                                        <button id="predictAllBtn" class="btn btn-primary" title="Predecir Todo"
+                                            style="height: 100%;">Predecir Todo</button>
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody id="actionTableBody">
+                                <!-- Aligned buttons will appear here -->
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
                 <!-- CSV Preview Table Container -->

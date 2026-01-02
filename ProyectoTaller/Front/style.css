@@ -187,6 +187,16 @@ body {
     background: transparent;
 }
 
+.manual-textarea {
+    resize: none;
+    overflow-y: hidden;
+    /* Hide scrollbar for auto-grow effect */
+    height: auto;
+    min-height: 24px;
+    vertical-align: middle;
+    line-height: 1.4;
+}
+
 /* Save Row Button */
 .save-row-btn {
     background-color: #22c55e;
@@ -355,6 +365,9 @@ body {
     border: 1px solid var(--border-color);
     padding: 10px;
     text-align: center;
+    height: 50px;
+    /* Fixed height to ensure alignment across side-by-side tables */
+    vertical-align: middle;
 }
 
 .data-table th {

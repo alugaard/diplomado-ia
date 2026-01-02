@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const aceptarBtn = document.querySelector('.btn-primary'); // Using class, assuming it's the Aceptar button
     const restaurarBtn = document.querySelector('.btn-secondary');
     const addManualRowBtn = document.getElementById('addManualRowBtn');
+    const predictAllBtn = document.getElementById('predictAllBtn');
 
     // Content Areas
     const dropZone = document.getElementById('dropZone');
@@ -12,6 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const manualTableBody = document.getElementById('manualTableBody');
     const csvPreviewTable = document.getElementById('csvPreviewTable'); // CSV table container
     const csvTableContent = document.getElementById('csvTableContent'); // CSV table content
+    const actionTableBody = document.getElementById('actionTableBody');
 
     // Inputs
     const fileInput = document.getElementById('fileInput');
@@ -101,40 +103,86 @@ document.addEventListener('DOMContentLoaded', () => {
     function addEditableRow() {
         const row = document.createElement('tr');
 
-        // 4 Editable Columns
-        for (let i = 0; i < 4; i++) {
-            const td = document.createElement('td');
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.className = 'manual-input';
-            td.appendChild(input);
-            row.appendChild(td);
-        }
+        // Column 1: Comentario (Textarea)
+        const tdComment = document.createElement('td');
+        const textarea = document.createElement('textarea');
+        textarea.className = 'manual-input manual-textarea';
+        textarea.rows = 1; // Start small
+        // Auto-resize logic
+        textarea.addEventListener('input', function () {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+        });
+        tdComment.appendChild(textarea);
+        row.appendChild(tdComment);
 
-        // Action Column
+        // Column 2: Clasificación (Input, Readonly or standard)
+        const tdClass = document.createElement('td');
+        const inputClass = document.createElement('input');
+        inputClass.type = 'text';
+        inputClass.className = 'manual-input';
+        tdClass.appendChild(inputClass);
+        row.appendChild(tdClass);
+
+        // Action Column (for the main table, will be hidden)
         const actionTd = document.createElement('td');
         const saveBtn = document.createElement('button');
         saveBtn.className = 'save-row-btn';
         saveBtn.textContent = '✔';
 
+        // Initial listener, will be overwritten
         saveBtn.addEventListener('click', () => {
-            lockRow(row, saveBtn);
+            // This listener will be replaced below
         });
 
         actionTd.appendChild(saveBtn);
         row.appendChild(actionTd);
-
         manualTableBody.appendChild(row);
+
+        // Add corresponding row to Action Table
+        const actionRow = document.createElement('tr');
+        const actionRowTd = document.createElement('td');
+        actionRowTd.style.border = 'none';
+        actionRowTd.style.background = 'transparent';
+        actionRowTd.style.padding = '10px'; // Match table padding
+
+        // Placeholder or empty initially
+        actionRowTd.innerHTML = '&nbsp;';
+
+        actionRow.appendChild(actionRowTd);
+        actionTableBody.appendChild(actionRow);
+
+        // Update save event to pass actionRowTd
+        saveBtn.onclick = () => { // Overwrite previous listener logic slightly to include actionRowTd
+            lockRow(row, saveBtn, actionTd, actionRowTd);
+        };
     }
 
-    function lockRow(row, saveBtn) {
-        const inputs = row.querySelectorAll('input');
+    function lockRow(row, saveBtn, actionTd, actionRowTd) {
+        const inputs = row.querySelectorAll('input, textarea');
         inputs.forEach(input => {
             input.disabled = true;
         });
+
+        // Disable save button visually
         saveBtn.disabled = true;
-        saveBtn.style.opacity = '0.5';
-        saveBtn.style.cursor = 'default';
+        saveBtn.style.display = 'none'; // Hide save button
+
+        // Create Predict Button in the Action Table
+        const predictBtn = document.createElement('button');
+        predictBtn.className = 'predict-row-btn';
+        predictBtn.textContent = 'Predecir';
+        predictBtn.className = 'btn btn-primary'; // Use same style as Predict All? Or simpler?
+        predictBtn.style.fontSize = '12px';
+        predictBtn.style.padding = '4px 8px';
+
+        predictBtn.addEventListener('click', () => {
+            predictRow(row, actionRowTd); // Pass actionRowTd to maybe show result there? Or just predict.
+        });
+
+        // Clear placeholder and add button
+        actionRowTd.innerHTML = '';
+        actionRowTd.appendChild(predictBtn);
     }
 
 
@@ -272,6 +320,73 @@ document.addEventListener('DOMContentLoaded', () => {
             renderCurrentPage();
         }
     });
+
+
+    // --- Prediction Logic ---
+
+    if (predictAllBtn) {
+        predictAllBtn.addEventListener('click', () => {
+            predictAll();
+        });
+    }
+
+    function predictAll() {
+        // Iterate over all rows in manualTableBody
+        const rows = manualTableBody.querySelectorAll('tr');
+        const actionRows = actionTableBody.querySelectorAll('tr');
+
+        rows.forEach((row, index) => {
+            // Find corresponding action button in actionTable
+            const actionRow = actionRows[index];
+            if (actionRow) {
+                const predictBtn = actionRow.querySelector('button'); // Assuming button is the predict button
+                // If button exists (row is locked)
+                if (predictBtn && !predictBtn.disabled) {
+                    predictRow(row);
+                }
+            }
+        });
+    }
+
+    function predictRow(row) {
+        const textarea = row.querySelector('textarea');
+        const inputs = row.querySelectorAll('input');
+
+        const comentario = textarea.value;
+        // The classification input is the first input element now (since textarea is not an input tag)
+        // Structure: [textarea (Comment), input (Classification)]
+        const classificationInput = inputs[0];
+
+        if (!comentario) return; // Skip if empty?
+
+        fetch('http://localhost:7002/predict', {
+            method: 'POST',
+            mode: 'cors', // Explicitly request CORS
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                comentario: comentario
+            })
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Success:', data);
+                // Update Clasificación input
+                if (data.prediccion) {
+                    classificationInput.value = data.prediccion;
+                }
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+                alert(`Error al predecir: ${error.message}. \n\nPosible causa: El servidor (localhost:7002) no está corriendo o no permite CORS (Cross-Origin Resource Sharing).`);
+            });
+    }
 
 
     // --- View Events ---
