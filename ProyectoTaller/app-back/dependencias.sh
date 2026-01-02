@@ -31,7 +31,7 @@ conda activate nps_api
 # joblib → cargar modelo .pkl
 # scikit-learn → TF-IDF + Logistic Regression
 # numpy, scipy → operaciones numéricas usadas internamente
-conda install flask joblib scikit-learn numpy scipy pandassh  -y
+conda install flask joblib scikit-learn numpy scipy pandas requests openai  -y
 
 
 # ============================================================
@@ -39,11 +39,14 @@ conda install flask joblib scikit-learn numpy scipy pandassh  -y
 # ============================================================
 
 python - <<'EOF'
-import flask, joblib, sklearn, numpy, scipy
-print("Flask:", flask.__veprrsion__)
+import flask, joblib, sklearn, numpy, scipy, pandas, requests, openai
+print("Flask:", flask.__version__)
 print("joblib:", joblib.__version__)
 print("scikit-learn:", sklearn.__version__)
 print("numpy:", numpy.__version__)
 print("scipy:", scipy.__version__)
+print("pandas:", pandas.__version__)
+print("requests:", requests.__version__)
+print("requests:", openai.__version__)
 print("✅ Entorno listo para ejecutar la API")
 EOF
