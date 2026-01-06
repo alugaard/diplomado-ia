@@ -462,3 +462,62 @@ body {
     color: var(--text-muted);
     font-weight: 500;
 }
+
+/* Tooltip Styles */
+.tooltip-container {
+    position: relative;
+    display: inline-block;
+    width: 100%;
+}
+
+.tooltip-text {
+    visibility: hidden;
+    width: 250px;
+    background-color: #fff;
+    /* White background */
+    color: #333;
+    /* Black text */
+    text-align: left;
+    border-radius: 6px;
+    padding: 10px;
+    position: absolute;
+    z-index: 10;
+    bottom: 125%;
+    /* Position above */
+    left: 50%;
+    margin-left: -125px;
+    /* Center */
+    opacity: 0;
+    transition: opacity 0.3s;
+    white-space: pre-wrap;
+    /* Maintain formatting */
+    font-size: 12px;
+    line-height: 1.4;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);
+    /* Softer shadow */
+    border: 1px solid #e2e8f0;
+    /* Light border */
+}
+
+.tooltip-container:hover .tooltip-text {
+    visibility: visible;
+    opacity: 1;
+}
+
+.tooltip-text::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    margin-left: -5px;
+    border-width: 5px;
+    border-style: solid;
+    border-color: #fff transparent transparent transparent;
+    /* Arrow matches bg */
+}
+
+/* Adjust table cell height to accommodate badges */
+.data-table td {
+    height: auto;
+    min-height: 50px;
+}

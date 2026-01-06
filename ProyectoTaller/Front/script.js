@@ -32,6 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let csvData = [];
     let csvHeader = [];
     let csvRows = [];
+    let csvProbabilities = []; // Store probability data separately
     let currentFileBase64 = null;
 
     // Pagination State
@@ -114,7 +115,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const inputClass = document.createElement('input');
         inputClass.type = 'text';
         inputClass.className = 'manual-input';
-        tdClass.appendChild(inputClass);
+
+        // Tooltip container wrapper for the input
+        const tooltipContainer = document.createElement('div');
+        tooltipContainer.className = 'tooltip-container';
+
+        // Tooltip text span
+        const tooltipText = document.createElement('span');
+        tooltipText.className = 'tooltip-text';
+        // tooltipText.textContent = "Probabilities will appear here"; 
+
+        tooltipContainer.appendChild(inputClass);
+        tooltipContainer.appendChild(tooltipText);
+        tdClass.appendChild(tooltipContainer);
+
         row.appendChild(tdClass);
 
         // Action Column (for the main table, will be hidden)
@@ -255,18 +269,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const classIndex = csvHeader.findIndex(h => h.toLowerCase().includes('clasificación') || h.toLowerCase().includes('clasificacion'));
 
             if (classIndex === -1) {
-                // Add column to header
                 csvHeader.push('Clasificación');
-                // Add empty value to each row
                 csvRows = csvRows.map(row => {
-                    // Normalize row length to header length first if needed, then add
-                    while (row.length < csvHeader.length - 1) {
-                        row.push('');
-                    }
+                    while (row.length < csvHeader.length - 1) row.push('');
                     row.push('');
                     return row;
                 });
             }
+
+            // Initialize probabilities array matching rows
+            csvProbabilities = new Array(csvRows.length).fill(null);
         } else {
             csvHeader = [];
             csvRows = [];
@@ -306,9 +318,35 @@ document.addEventListener('DOMContentLoaded', () => {
         const tbody = document.createElement('tbody');
         rows.forEach((rowData, index) => {
             const row = document.createElement('tr');
-            rowData.forEach(cell => {
+            // Global index for data awareness
+            const globalIndex = (currentPage - 1) * itemsPerPage + index;
+
+            rowData.forEach((cell, cellIndex) => {
                 const td = document.createElement('td');
-                td.textContent = cell ? cell.trim() : '';
+
+                // Check if this is the "Clasificación" column
+                const isClassColumn = csvHeader[cellIndex] && (csvHeader[cellIndex].toLowerCase().includes('clasificación') || csvHeader[cellIndex].toLowerCase().includes('clasificacion'));
+
+                if (isClassColumn && csvProbabilities[globalIndex]) {
+                    // Wrap in tooltip
+                    const tooltipContainer = document.createElement('div');
+                    tooltipContainer.className = 'tooltip-container';
+                    tooltipContainer.innerHTML = ''; // Clear existing content to prevent accumulation
+
+                    const spanContent = document.createElement('span');
+                    spanContent.textContent = cell ? cell.trim() : '';
+
+                    const tooltipText = document.createElement('span');
+                    tooltipText.className = 'tooltip-text';
+                    tooltipText.textContent = csvProbabilities[globalIndex];
+
+                    tooltipContainer.appendChild(spanContent);
+                    tooltipContainer.appendChild(tooltipText);
+                    td.appendChild(tooltipContainer);
+                } else {
+                    td.textContent = cell ? cell.trim() : '';
+                }
+
                 row.appendChild(td);
             });
             tbody.appendChild(row);
@@ -325,9 +363,6 @@ document.addEventListener('DOMContentLoaded', () => {
             predictBtn.textContent = 'Predecir';
             predictBtn.style.fontSize = '12px';
             predictBtn.style.padding = '4px 8px';
-
-            // Global index for data awareness
-            const globalIndex = (currentPage - 1) * itemsPerPage + index;
 
             predictBtn.addEventListener('click', () => {
                 predictCsvRow(globalIndex, rowData, row);
@@ -431,6 +466,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (data.prediccion) {
                     classificationInput.value = data.prediccion;
                 }
+
+                // Update Probabilities Tooltip
+                // Check if tooltip text element already exists, if not create it (should exist from addEditableRow)
+                let tooltipText = row.querySelector('.tooltip-text');
+                if (!tooltipText) {
+                    // Fallback if not created initially
+                    const container = row.querySelector('.tooltip-container');
+                    if (container) {
+                        tooltipText = document.createElement('span');
+                        tooltipText.className = 'tooltip-text';
+                        container.appendChild(tooltipText);
+                    }
+                }
+
+                if (tooltipText && data.probabilidad) {
+                    // Format: "Label: 0.50\nLabel: 0.30"
+                    const probText = Object.entries(data.probabilidad)
+                        .map(([label, score]) => `${label}: ${score.toFixed(2)}`)
+                        .join('\n');
+                    tooltipText.textContent = probText;
+                }
             })
             .catch((error) => {
                 console.error('Error:', error);
@@ -479,17 +535,21 @@ document.addEventListener('DOMContentLoaded', () => {
                     let matchCount = 0;
                     data.forEach((item, index) => {
                         if (csvRows[index]) {
-                            // Verify if generic index matching or if we should try to match by comment?
-                            // Assuming 1-to-1 in order for this batch operation.
                             if (item.prediccion) {
                                 csvRows[index][classIndex] = item.prediccion;
                                 matchCount++;
+                            }
+                            // Store formatted probability text
+                            if (item.probabilidad) {
+                                const probText = Object.entries(item.probabilidad)
+                                    .map(([k, v]) => `${k}: ${v.toFixed(2)}`)
+                                    .join('\n');
+                                csvProbabilities[index] = probText;
                             }
                         }
                     });
 
                     renderCurrentPage();
-                    alert(`Predicción completa. Se actualizaron ${matchCount} filas.`);
 
                 } else if (data.archivo) {
                     // Fallback for Base64 if needed, or remove if strictly JSON now.
@@ -506,7 +566,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         const decodedCsv = new TextDecoder().decode(bytes);
                         parseCSV(decodedCsv);
                         renderCurrentPage();
-                        alert("Predicción completa (Base64).");
                     } catch (e) {
                         alert("Formato de respuesta no reconocido.");
                     }
@@ -611,7 +670,10 @@ document.addEventListener('DOMContentLoaded', () => {
         fileInput.value = ''; // Important: Allows re-selecting the same file
         csvData = [];
         csvHeader = [];
+        csvData = [];
+        csvHeader = [];
         csvRows = [];
+        csvProbabilities = [];
         currentFileBase64 = null;
 
         // Update View
