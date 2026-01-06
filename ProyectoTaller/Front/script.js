@@ -14,11 +14,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const csvPreviewTable = document.getElementById('csvPreviewTable'); // CSV table container
     const csvTableContent = document.getElementById('csvTableContent'); // CSV table content
     const actionTableBody = document.getElementById('actionTableBody');
+    const csvActionTableBody = document.getElementById('csvActionTableBody');
+    const predictAllCsvBtn = document.getElementById('predictAllCsvBtn');
 
     // Inputs
     const fileInput = document.getElementById('fileInput');
     const uploadTrigger = document.getElementById('uploadTrigger');
-    const previsualizarCheckbox = document.querySelector('input[name="previsualizar"]');
     const allCheckboxes = document.querySelectorAll('input[type="checkbox"]');
 
     // Pagination Controls
@@ -31,6 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let csvData = [];
     let csvHeader = [];
     let csvRows = [];
+    let currentFileBase64 = null;
 
     // Pagination State
     let currentPage = 1;
@@ -68,27 +70,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateArchivoView() {
         if (!manualBtn.classList.contains('active')) { // Only if we are in Archivo view
-            if (fileLoaded && previsualizarCheckbox.checked) {
+            if (fileLoaded) {
                 dropZone.classList.add('hidden');
                 csvPreviewTable.classList.remove('hidden');
                 renderCurrentPage();
             } else {
                 dropZone.classList.remove('hidden');
                 csvPreviewTable.classList.add('hidden');
-                updateIconState();
+                // Ensure icon is reset
+                uploadTrigger.textContent = '+';
+                uploadTrigger.classList.add('plus-icon');
+                uploadTrigger.classList.remove('success-icon');
             }
-        }
-    }
-
-    function updateIconState() {
-        if (fileLoaded) {
-            uploadTrigger.textContent = '✔';
-            uploadTrigger.classList.add('success-icon');
-            uploadTrigger.classList.remove('plus-icon');
-        } else {
-            uploadTrigger.textContent = '+';
-            uploadTrigger.classList.add('plus-icon');
-            uploadTrigger.classList.remove('success-icon');
         }
     }
 
@@ -226,6 +219,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function handleFile(file) {
         if (file && (file.type === "text/csv" || file.name.endsWith('.csv'))) {
+            // Text Reader for Preview
             const reader = new FileReader();
             reader.onload = function (event) {
                 const text = event.target.result;
@@ -235,6 +229,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateArchivoView();
             };
             reader.readAsText(file);
+
+            // Base64 Reader for API
+            const readerB64 = new FileReader();
+            readerB64.onload = function (e) {
+                // Remove data URL prefix (e.g., "data:text/csv;base64,")
+                currentFileBase64 = e.target.result.split(',')[1];
+            };
+            readerB64.readAsDataURL(file);
         } else {
             alert('Por favor carga un archivo CSV válido.');
         }
@@ -246,8 +248,25 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = rows.map(row => row.split(';'));
 
         if (data.length > 0) {
-            csvHeader = data[0];
+            csvHeader = data[0].map(h => h.trim()); // Trim headers
             csvRows = data.slice(1);
+
+            // Ensure "Clasificación" column exists
+            const classIndex = csvHeader.findIndex(h => h.toLowerCase().includes('clasificación') || h.toLowerCase().includes('clasificacion'));
+
+            if (classIndex === -1) {
+                // Add column to header
+                csvHeader.push('Clasificación');
+                // Add empty value to each row
+                csvRows = csvRows.map(row => {
+                    // Normalize row length to header length first if needed, then add
+                    while (row.length < csvHeader.length - 1) {
+                        row.push('');
+                    }
+                    row.push('');
+                    return row;
+                });
+            }
         } else {
             csvHeader = [];
             csvRows = [];
@@ -270,6 +289,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderCSVTable(header, rows) {
         csvTableContent.innerHTML = '';
+        csvActionTableBody.innerHTML = '';
 
         // Header
         const thead = document.createElement('thead');
@@ -284,7 +304,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Body
         const tbody = document.createElement('tbody');
-        rows.forEach(rowData => {
+        rows.forEach((rowData, index) => {
             const row = document.createElement('tr');
             rowData.forEach(cell => {
                 const td = document.createElement('td');
@@ -292,6 +312,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 row.appendChild(td);
             });
             tbody.appendChild(row);
+
+            // Action Row
+            const actionRow = document.createElement('tr');
+            const actionTd = document.createElement('td');
+            actionTd.style.border = 'none';
+            actionTd.style.background = 'transparent';
+            actionTd.style.padding = '10px';
+
+            const predictBtn = document.createElement('button');
+            predictBtn.className = 'predict-row-btn btn btn-primary';
+            predictBtn.textContent = 'Predecir';
+            predictBtn.style.fontSize = '12px';
+            predictBtn.style.padding = '4px 8px';
+
+            // Global index for data awareness
+            const globalIndex = (currentPage - 1) * itemsPerPage + index;
+
+            predictBtn.addEventListener('click', () => {
+                predictCsvRow(globalIndex, rowData, row);
+            });
+
+            actionTd.appendChild(predictBtn);
+            actionRow.appendChild(actionTd);
+            csvActionTableBody.appendChild(actionRow);
         });
         csvTableContent.appendChild(tbody);
     }
@@ -327,6 +371,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (predictAllBtn) {
         predictAllBtn.addEventListener('click', () => {
             predictAll();
+        });
+    }
+
+    if (predictAllCsvBtn) {
+        predictAllCsvBtn.addEventListener('click', () => {
+            predictAllCsv();
         });
     }
 
@@ -388,6 +438,149 @@ document.addEventListener('DOMContentLoaded', () => {
             });
     }
 
+    function predictAllCsv() {
+        if (!currentFileBase64) {
+            alert("No hay archivo cargado para predecir.");
+            return;
+        }
+
+        const btn = document.getElementById('predictAllCsvBtn');
+        const originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = "Prediciendo...";
+
+        fetch('http://localhost:7002/predict_csv', {
+            method: 'POST',
+            mode: 'cors',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                archivo: currentFileBase64
+            })
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (Array.isArray(data)) {
+                    // Find Classification Column Index
+                    const classIndex = csvHeader.findIndex(h => h.toLowerCase().includes('clasificación') || h.toLowerCase().includes('clasificacion'));
+
+                    if (classIndex === -1) {
+                        alert('Error: No se encontró la columna "Clasificación" en la tabla.');
+                        return;
+                    }
+
+                    // Update rows
+                    let matchCount = 0;
+                    data.forEach((item, index) => {
+                        if (csvRows[index]) {
+                            // Verify if generic index matching or if we should try to match by comment?
+                            // Assuming 1-to-1 in order for this batch operation.
+                            if (item.prediccion) {
+                                csvRows[index][classIndex] = item.prediccion;
+                                matchCount++;
+                            }
+                        }
+                    });
+
+                    renderCurrentPage();
+                    alert(`Predicción completa. Se actualizaron ${matchCount} filas.`);
+
+                } else if (data.archivo) {
+                    // Fallback for Base64 if needed, or remove if strictly JSON now.
+                    // Keeping previous logic commented out or just replacing it entirely as requested.
+                    // The user said "This is the api response", implying the other one was wrong.
+                    console.warn("Received 'archivo' format but expected JSON array. Trying legacy decode...");
+                    // ... (legacy decode logic could go here if we wanted to support both, but let's stick to the request)
+                    try {
+                        const binaryString = atob(data.archivo);
+                        const bytes = new Uint8Array(binaryString.length);
+                        for (let i = 0; i < binaryString.length; i++) {
+                            bytes[i] = binaryString.charCodeAt(i);
+                        }
+                        const decodedCsv = new TextDecoder().decode(bytes);
+                        parseCSV(decodedCsv);
+                        renderCurrentPage();
+                        alert("Predicción completa (Base64).");
+                    } catch (e) {
+                        alert("Formato de respuesta no reconocido.");
+                    }
+                } else {
+                    console.warn("Respuesta inesperada:", data);
+                    alert("La respuesta del servidor no tiene el formato esperado (Array de predicciones).");
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert(`Error al predecir todo: ${error.message}`);
+            })
+            .finally(() => {
+                btn.disabled = false;
+                btn.textContent = originalText;
+            });
+    }
+
+    function predictCsvRow(globalIndex, rowData, rowElement) {
+        // Find indices
+        const commentIndex = csvHeader.findIndex(h => h.toLowerCase().includes('comentario'));
+        const classIndex = csvHeader.findIndex(h => h.toLowerCase().includes('clasificación') || h.toLowerCase().includes('clasificacion'));
+
+        if (commentIndex === -1) {
+            alert('No se encontró la columna "Comentario" en el CSV.');
+            return;
+        }
+
+        const comentario = rowData[commentIndex];
+        if (!comentario) return;
+
+        fetch('http://localhost:7002/predict', {
+            method: 'POST',
+            mode: 'cors',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                comentario: comentario
+            })
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.prediccion) {
+                    // Update internal data
+                    if (classIndex !== -1) {
+                        csvRows[globalIndex][classIndex] = data.prediccion;
+
+                        // Update UI
+                        const cells = rowElement.querySelectorAll('td');
+                        if (cells[classIndex]) {
+                            cells[classIndex].textContent = data.prediccion;
+                            // Highlight change
+                            cells[classIndex].style.backgroundColor = '#e6fffa';
+                            setTimeout(() => {
+                                cells[classIndex].style.backgroundColor = '';
+                            }, 2000);
+                        }
+                    } else {
+                        console.warn('Columna Clasificación no encontrada, no se puede actualizar la tabla visual.');
+                        alert(`Predicción: ${data.prediccion}\n(No se pudo escribir en la tabla porque falta la columna "Clasificación")`);
+                    }
+                }
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+            });
+    }
+
 
     // --- View Events ---
 
@@ -419,9 +612,9 @@ document.addEventListener('DOMContentLoaded', () => {
         csvData = [];
         csvHeader = [];
         csvRows = [];
+        currentFileBase64 = null;
 
         // Update View
         updateArchivoView();
-        updateIconState();
     });
 });

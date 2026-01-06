@@ -24,24 +24,7 @@
     <div class="app-container">
         <!-- Sidebar -->
         <aside class="sidebar">
-            <div class="sidebar-section">
-                <h3>Opciones</h3>
-                <label class="checkbox-wrapper">
-                    <input type="checkbox" name="previsualizar">
-                    <span class="custom-checkbox"></span>
-                    Previsualizar
-                </label>
-                <label class="checkbox-wrapper">
-                    <input type="checkbox" name="clasificar" checked>
-                    <span class="custom-checkbox"></span>
-                    Clasificar
-                </label>
-                <label class="checkbox-wrapper">
-                    <input type="checkbox" name="descargar" checked>
-                    <span class="custom-checkbox"></span>
-                    Descargar
-                </label>
-            </div>
+
 
             <div class="sidebar-section">
                 <h3>Modelos predictivos</h3>
@@ -124,9 +107,26 @@
 
                 <!-- CSV Preview Table Container -->
                 <div class="results-table-container hidden" id="csvPreviewTable">
-                    <table class="data-table" id="csvTableContent">
-                        <!-- CSV Data will be injected here -->
-                    </table>
+                    <div style="display: flex; align-items: flex-start; gap: 10px;">
+                        <table class="data-table" id="csvTableContent" style="flex: 1;">
+                            <!-- CSV Data will be injected here -->
+                        </table>
+
+                        <!-- Side Actions Table for CSV -->
+                        <table class="data-table" style="width: auto; background: transparent; border: none;">
+                            <thead style="background: transparent;">
+                                <tr>
+                                    <th style="background: transparent; border: none; padding: 10px 10px;">
+                                        <button id="predictAllCsvBtn" class="btn btn-primary" title="Predecir Todo"
+                                            style="height: 100%;">Predecir Todo</button>
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody id="csvActionTableBody">
+                                <!-- Aligned buttons will appear here -->
+                            </tbody>
+                        </table>
+                    </div>
                     <div class="pagination-controls" id="paginationControls">
                         <button id="prevPage" class="pagination-btn" disabled>&lt; Anterior</button>
                         <span id="pageIndicator">Página 1</span>
