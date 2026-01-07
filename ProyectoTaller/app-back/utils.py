@@ -16,7 +16,132 @@ if modelo == "clasico":
 elif modelo == "beto":
     load_pretrained(MODEL_PATH)
 
-def predict_text(texto: str,tipo_modelo="clasico"):
+# ====== BETO + LoRA (PEFT) ======
+# Carpeta exportada con:
+# adapter_model.safetensors, adapter_config.json, tokenizer*, vocab, label_encoder.pkl
+BETO_ADAPTER_PATH = "modelo_beto_lora"
+BETO_BASE_MODEL = "dccuchile/bert-base-spanish-wwm-uncased"
+BETO_MAX_LEN = 64
+
+# Variables globales (se cargan solo si se usa BETO)
+beto_model = None
+beto_tokenizer = None
+beto_encoder = None
+beto_device = None
+
+
+def load_beto_once():
+    """Carga BETO base + adapter LoRA + tokenizer + encoder una sola vez."""
+    global beto_model, beto_tokenizer, beto_encoder, beto_device
+
+    if beto_model is not None:
+        return  # ya cargado
+
+    import torch
+    from transformers import AutoTokenizer, AutoModelForSequenceClassification
+    from peft import PeftModel
+
+    beto_device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    # tokenizer guardado en la carpeta del adapter
+    beto_tokenizer = AutoTokenizer.from_pretrained(BETO_ADAPTER_PATH)
+
+    # cargar base model (de HuggingFace cache) + pegar adapter LoRA
+    base_model = AutoModelForSequenceClassification.from_pretrained(
+        BETO_BASE_MODEL,
+        num_labels=3,
+    use_safetensors=True
+    ).to(beto_device)
+
+    beto_model = PeftModel.from_pretrained(base_model, BETO_ADAPTER_PATH).to(beto_device)
+    beto_model.eval()
+
+    # encoder guardado junto al modelo BETO (recomendado)
+    beto_encoder = joblib.load(f"{BETO_ADAPTER_PATH}/label_encoder.pkl")
+
+
+# ===============================
+#              BETO
+# ===============================
+def predict_text(texto: str, tipo_modelo="beto"):
+    """
+    Igual estilo que predict_textGru:
+    - predicción (etiqueta texto)
+    - probabilidades por clase (dict)
+    """
+    load_beto_once()
+
+    import torch
+
+    enc = beto_tokenizer(
+        texto,
+        truncation=True,
+        padding="max_length",
+        max_length=BETO_MAX_LEN,
+        return_tensors="pt"
+    )
+    enc = {k: v.to(beto_device) for k, v in enc.items()}
+
+    with torch.no_grad():
+        outputs = beto_model(**enc)
+        logits = outputs.logits  # [1, num_classes]
+
+        pred_id = torch.argmax(logits, dim=1).item()
+        pred = beto_encoder.inverse_transform([pred_id])[0]
+
+        # probas
+        probs = torch.softmax(logits, dim=1).squeeze(0).detach().cpu().numpy()
+
+    clases = beto_encoder.inverse_transform(list(range(len(probs))))
+
+    proba_dict = {
+        str(clases[i]): float(probs[i])
+        for i in range(len(probs))
+    }
+
+    return pred, proba_dict
+
+
+def predict_texts(textos):
+    """
+    Igual estilo que predict_textsGru:
+    return:
+      preds: list[str]
+      probas: list[list[float]]
+      class_names: list[str]
+    """
+    load_beto_once()
+
+    import torch
+
+    # Tokenizar en batch
+    enc = beto_tokenizer(
+        textos,
+        truncation=True,
+        padding="max_length",
+        max_length=BETO_MAX_LEN,
+        return_tensors="pt"
+    )
+    enc = {k: v.to(beto_device) for k, v in enc.items()}
+
+    with torch.no_grad():
+        logits = beto_model(**enc).logits  # [B, C]
+        probs = torch.softmax(logits, dim=1).detach().cpu().numpy()
+
+        pred_ids = torch.argmax(logits, dim=1).detach().cpu().numpy().tolist()
+
+    # convertir ids -> etiquetas
+    preds = beto_encoder.inverse_transform(pred_ids).tolist()
+
+    # nombres de clases (en orden de columnas)
+    class_names = beto_encoder.inverse_transform(list(range(probs.shape[1]))).tolist()
+
+    return preds, probs.tolist(), class_names
+
+# ===============================
+#            GRU / CLÁSICO
+# ===============================
+def predict_textGru(texto: str,tipo_modelo="clasico"):
     """
     Recibe un string (comentario) y devuelve:
     - etiqueta predicha
@@ -43,7 +168,7 @@ def predict_text(texto: str,tipo_modelo="clasico"):
     
     return pred, proba_dict
 
-def predict_texts(textos):
+def predict_textsGru(textos):
     """
     textos: list[str]
     return:

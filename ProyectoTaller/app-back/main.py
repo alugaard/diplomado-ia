@@ -58,7 +58,7 @@ def predict_csv():
         text = csv_bytes.decode("utf-8", errors="ignore")
         df = pd.read_csv(io.StringIO(text), sep=None, engine="python")
     except Exception as e:
-        return jsonify({"error": f"No se pudo leer el CSV: {str(e)}"}), 400
+        return jsonify({"error": "No se pudo leer el CSV: {}".format(str(e))}), 400
 
     if df.shape[1] == 0:
         return jsonify({"error": "CSV sin columnas"}), 400
@@ -93,7 +93,7 @@ def openAiUso():
 
     prompt = "Eres un experto en clasificación de textos en redes sociales. Tu tarea es leer un tweet en español y asignarlo a una y solo una de las siguientes categorías: odio, incivilidad o normal. Odio: cualquier expresión que promueva o incite a la discriminación, la hostilidad o la violencia hacia una persona o grupo en una relación asimétrica de poder, por razones como raza, etnia, género, orientación sexual, religión, nacionalidad, discapacidad u otra característica similar. Incivilidad: cualquier comportamiento o actitud que rompa las normas de respeto, cortesía o consideración entre personas, incluyendo insultos, ataques personales, sarcasmo, desprecio u otras formas de agresión verbal que no constituyen discurso de odio. Normal: expresiones que no contienen hostilidad, ataques, incivilidad ni discurso de odio. Debes responder solo con una de estas tres palabras: odio, incivilidad, normal. No entregues explicaciones ni texto adicional. Ejemplos de estos serian. La persona que me atendio tiene un problemas de actitud. Clasificación: incivilidad. La forma en que actuo estuvo bien. Los migrantes son una plaga que debería ser expulsada. Clasificación: odio . Eres un imbécil, no sabes nada. Clasificación: incivilidad. Hoy cociné por primera vez pastel de choclo y quedó buenísimo. Clasificación: normal. ¿Alguien sabe si mañana llueve en Santiago?. Clasificación: normal. Gracias a todos por el apoyo estos días, se valora mucho. Clasificación:normal. Este es el twets: "
     prompt = prompt + comentario
-    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {API_KEY}"}
+    headers = {"Content-Type": "application/json", "Authorization": "Bearer {}".format(API_KEY)}
 
     data = {
         "model": "openai/gpt-5-nano",

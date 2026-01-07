@@ -32,6 +32,8 @@ conda activate nps_api
 # scikit-learn → TF-IDF + Logistic Regression
 # numpy, scipy → operaciones numéricas usadas internamente
 conda install flask joblib scikit-learn numpy scipy pandas requests openai flask-cors -y
+conda install pytorch torchvision torchaudio -c pytorch -y
+pip install transformers peft accelerate
 
 
 # ============================================================
