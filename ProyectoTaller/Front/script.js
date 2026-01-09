@@ -444,7 +444,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!comentario) return; // Skip if empty?
 
-        fetch('http://localhost:7002/predict', {
+        fetch(`${API_BASE_URL}/predict`, {
             method: 'POST',
             mode: 'cors', // Explicitly request CORS
             headers: {
@@ -505,7 +505,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.disabled = true;
         btn.textContent = "Prediciendo...";
 
-        fetch('http://localhost:7002/predict_csv', {
+        fetch(`${API_BASE_URL}/predict_csv`, {
             method: 'POST',
             mode: 'cors',
             headers: {
@@ -597,7 +597,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const comentario = rowData[commentIndex];
         if (!comentario) return;
 
-        fetch('http://localhost:7002/predict', {
+        fetch(`${API_BASE_URL}/predict`, {
             method: 'POST',
             mode: 'cors',
             headers: {
