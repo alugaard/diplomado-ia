@@ -204,3 +204,41 @@ def predict_textsGru(textos):
         class_names = encoder.inverse_transform(list(range(n_classes))).tolist()
 
     return preds, probas, class_names
+
+
+    # ===============================
+#            GEMINIS 
+# ===============================
+from google import genai
+import json
+def predict_textGeminis(texto: str):
+    """
+    Recibe un string (comentario) y devuelve:
+    - etiqueta predicha
+    - probabilidades por clase (si el modelo lo soporta)
+    """
+    API_KEY = "AIzaSyBrDpKhwHHu_QTIT02H8qU68sDRR7gRLIU"
+
+    client = genai.Client(vertexai=False, api_key=API_KEY)
+    prompt = """Eres un experto en clasificación de comentarios sobre productos y atenciones de una plataforma líder de comercio electrónico y servicios fintech. Tu tarea es leer los comentarios en español y asignarle a una y solo una de las siguientes categorías: 'Sugerencia', 'Felicitaciones y Agradecimientos' o 'Reclamo'. Debes responder solo con una de estas tres etiquetas: 'Sugerencia', 'Felicitaciones y Agradecimientos' o 'Reclamo'. Devuelve un JSON estrictamente con esta estructura:{'comentario': str, 'prediccion': str, 'probabilidad': dict}. IMPORTANTE: Usa solo comillas dobles, no incluyas etiquetas markdown como ```json.  Ejemplos de estos serian. Deberían implementar una herramienta visible para que el usuario pueda verificar el estado de su contraseña (ej. expirada/activa). Clasificación: Sugerencia. Aprecio que las impresoras sean multifuncionales (imprimir, escanear, copiar). Clasificación: Felicitaciones y Agradecimientos . El sistema de restablecimiento me pide una pregunta de seguridad que nunca configuré o no recuerdo. Clasificación: Reclamo. Este es el comentario: """
+    prompt = prompt + texto
+
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=prompt,
+    )
+
+    #print("Repsuesta geminis: "+ response.text)
+    # Convertimos el string de Gemini a un diccionario real de Python
+    res_dict = json.loads(response.text)
+    
+    # Extraemos los valores
+    comentario = res_dict.get("comentario")
+    pred = res_dict.get("prediccion")
+    proba = res_dict.get("probabilidad")
+    
+    return comentario, pred, proba
+
+
+
+

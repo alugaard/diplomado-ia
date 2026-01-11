@@ -34,6 +34,7 @@ conda activate nps_api
 conda install flask joblib scikit-learn numpy scipy pandas requests openai flask-cors -y
 conda install pytorch torchvision torchaudio -c pytorch -y
 pip install transformers peft accelerate
+pip install --upgrade google-genai
 
 
 # ============================================================
