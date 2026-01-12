@@ -1,20 +1,20 @@
 # -*- coding: utf-8 -*-
 import joblib
+import os
+from dotenv import load_dotenv
+load_dotenv()
+# Obtenemos la API KEY de forma segura
+api_key = os.getenv("GEMINI_API_KEY")
 
-
-MODEL_PATH = "modelo.pkl"
-modelo = "clasico"
 
 # Codificación de etiquetas
 encoder = joblib.load('label_encoder.pkl')
 
 
 # Cargar una vez al iniciar el servidor
-model = joblib.load(MODEL_PATH)
-if modelo == "clasico":
-    joblib.load(MODEL_PATH)
-elif modelo == "beto":
-    load_pretrained(MODEL_PATH)
+modelo_tfidf_logreg_clf = joblib.load("modelo_tfidf_logreg_clf.pkl")
+#modelo_gru = joblib.load("modelo_gru.pkl")
+
 
 # ====== BETO + LoRA (PEFT) ======
 # Carpeta exportada con:
@@ -139,14 +139,22 @@ def predict_texts(textos):
     return preds, probs.tolist(), class_names
 
 # ===============================
-#            GRU / CLÁSICO
+#            GRU o tfidf / CLÁSICO
 # ===============================
-def predict_textGru(texto: str,tipo_modelo="clasico"):
+def predict_textclasico(texto: str,modelo_clasico="tfidf"):
     """
     Recibe un string (comentario) y devuelve:
     - etiqueta predicha
     - probabilidades por clase (si el modelo lo soporta)
     """
+    model=None
+    #if modelo_clasico == 'gru':
+    #    print("Prediccion con modelo gru")
+    #    model=modelo_gru
+    if modelo_clasico == 'tfidf':
+        print("Prediccion con modelo tfidf")
+        model=modelo_tfidf_logreg_clf
+    
     pred = model.predict([texto])
     #convertir de nuemerico a etiqueta que saco mayor probabilidad
     pred=encoder.inverse_transform(pred)[0]
@@ -168,7 +176,7 @@ def predict_textGru(texto: str,tipo_modelo="clasico"):
     
     return pred, proba_dict
 
-def predict_textsGru(textos):
+def predict_textsClasico(textos,modelo_clasico="tfidf"):
     """
     textos: list[str]
     return:
@@ -176,6 +184,12 @@ def predict_textsGru(textos):
       probas: list[list[float]] o None
       classes: list[str] (si predict_proba existe)
     """
+    model=None
+    #if modelo_clasico == 'gru':
+    #    model=modelo_gru
+    if modelo_clasico == 'tfidf':
+        model=modelo_tfidf_logreg_clf
+
     preds = model.predict(textos)
 
   # Predicción (ids o strings)
@@ -217,7 +231,7 @@ def predict_textGeminis(texto: str):
     - etiqueta predicha
     - probabilidades por clase (si el modelo lo soporta)
     """
-    API_KEY = "AIzaSyBrDpKhwHHu_QTIT02H8qU68sDRR7gRLIU"
+    API_KEY = api_key
 
     client = genai.Client(vertexai=False, api_key=API_KEY)
     prompt = """Eres un experto en clasificación de comentarios sobre productos y atenciones de una plataforma líder de comercio electrónico y servicios fintech. Tu tarea es leer los comentarios en español y asignarle a una y solo una de las siguientes categorías: 'Sugerencia', 'Felicitaciones y Agradecimientos' o 'Reclamo'. Debes responder solo con una de estas tres etiquetas: 'Sugerencia', 'Felicitaciones y Agradecimientos' o 'Reclamo'. Devuelve un JSON estrictamente con esta estructura:{'comentario': str, 'prediccion': str, 'probabilidad': dict}. IMPORTANTE: Usa solo comillas dobles, no incluyas etiquetas markdown como ```json.  Ejemplos de estos serian. Deberían implementar una herramienta visible para que el usuario pueda verificar el estado de su contraseña (ej. expirada/activa). Clasificación: Sugerencia. Aprecio que las impresoras sean multifuncionales (imprimir, escanear, copiar). Clasificación: Felicitaciones y Agradecimientos . El sistema de restablecimiento me pide una pregunta de seguridad que nunca configuré o no recuerdo. Clasificación: Reclamo. Este es el comentario: """
@@ -238,6 +252,74 @@ def predict_textGeminis(texto: str):
     proba = res_dict.get("probabilidad")
     
     return comentario, pred, proba
+
+import json
+import time
+from google import genai
+
+def predict_textsGeminis(comentarios: list):
+    """
+    Procesa una lista de comentarios uno por uno para Gemini.
+    Retorna:
+      preds: list[str] (Las etiquetas predichas)
+      probas: list[list[float]] (Matriz de probabilidades)
+      class_names: list[str] (Nombres de las clases en orden)
+    """
+    API_KEY = api_key
+    client = genai.Client(vertexai=False, api_key=API_KEY)
+    
+    # Orden de clases consistente para que el frontend/CSV sea legible
+    class_names = ['Felicitaciones y Agradecimientos', 'Reclamo', 'Sugerencia']
+    
+    preds = []
+    probas = []
+
+    for texto in comentarios:
+        # Si el texto está vacío, saltamos o ponemos valores por defecto
+        if not texto.strip():
+            preds.append("N/A")
+            probas.append([0.0, 0.0, 0.0])
+            continue
+
+        prompt = f"""Eres un experto en clasificación. Clasifica el siguiente comentario en una de estas categorías: {class_names}.
+        Devuelve un JSON estrictamente con esta estructura:
+        {{
+          "prediccion": "nombre_de_la_categoria",
+          "probabilidades": {{
+            "Felicitaciones y Agradecimientos": 0.0,
+            "Reclamo": 0.0,
+            "Sugerencia": 0.0
+          }}
+        }}
+        IMPORTANTE: Usa solo comillas dobles, no incluyas etiquetas markdown.
+        Comentario: {texto}"""
+
+        try:
+            response = client.models.generate_content(
+                model="gemini-2.0-flash", 
+                contents=prompt
+            )
+            
+            # Limpieza y carga del JSON
+            res_dict = json.loads(response.text.replace("```json", "").replace("```", "").strip())
+            
+            # Guardamos la predicción (etiqueta)
+            preds.append(res_dict.get("prediccion"))
+            
+            # Extraemos las probabilidades en el orden de class_names
+            p_dict = res_dict.get("probabilidades", {})
+            p_lista = [float(p_dict.get(clase, 0.0)) for clase in class_names]
+            probas.append(p_lista)
+
+            # Opcional: Pequeña pausa para no saturar la cuota de la API (Rate Limit)
+            # time.sleep(0.1) 
+
+        except Exception as e:
+            print(f"Error en comentario '{texto[:30]}...': {e}")
+            preds.append("Error")
+            probas.append([0.0, 0.0, 0.0])
+
+    return preds, probas, class_names
 
 
 

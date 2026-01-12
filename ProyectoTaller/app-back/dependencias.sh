@@ -35,6 +35,7 @@ conda install flask joblib scikit-learn numpy scipy pandas requests openai flask
 conda install pytorch torchvision torchaudio -c pytorch -y
 pip install transformers peft accelerate
 pip install --upgrade google-genai
+pip install python-dotenv
 
 
 # ============================================================

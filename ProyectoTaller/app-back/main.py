@@ -11,7 +11,7 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 from pydantic import BaseModel
 
-from utils import predict_text, predict_texts,predict_textGeminis
+from utils import predict_text, predict_texts,predict_textGeminis,predict_textclasico,predict_textsGeminis,predict_textsClasico
 
 app = Flask(__name__)
 CORS(app)
@@ -29,8 +29,12 @@ def predict():
 
         if not isinstance(comentario, str) or comentario.strip() == "":
             return jsonify({"error": "Debes enviar 'comentario' como string no vacío"}), 400
-
-        pred, proba = predict_text(comentario)
+        pred= None
+        proba= None
+        if modelo_elegido == 'beto':
+            pred, proba = predict_text(comentario)
+        else : #modelo_elegido gru o tfidf
+            pred, proba = predict_textclasico(comentario)
 
         resp = {"comentario": comentario, "prediccion": str(pred), "probabilidad": proba}
     else:
@@ -42,6 +46,7 @@ def predict():
 # Pruebas con archivo en base64(csv). saca de la primera columna del csv los comentarios a evaluar
 @app.route("/predict_csv", methods=["POST"])
 def predict_csv():
+    modelo_elegido = request.args.get('model', 'beto')
     data = request.get_json(silent=True) or {}
 
     b64 = data.get("archivo", "")
@@ -72,7 +77,13 @@ def predict_csv():
     comentarios = df.iloc[:, 0].astype(str).tolist()
 
     # Predicción
-    preds, probas, class_names = predict_texts(comentarios)
+    if modelo_elegido != "gemini":
+        if modelo_elegido == 'beto':
+            preds, probas, class_names = predict_texts(comentarios)
+        if modelo_elegido == 'tfidf':
+            preds, probas, class_names = predict_textsClasico(comentarios)
+    #else :
+    #    preds, probas, class_names = predict_textsGeminis(comentarios)
 
     resultados = []
     for i, texto in enumerate(comentarios):
