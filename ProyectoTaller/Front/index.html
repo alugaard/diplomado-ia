@@ -16,7 +16,11 @@
     <header class="top-nav">
         <nav>
             <button class="nav-tab active">Cargas</button>
+        </nav>
+        <nav>
             <button class="nav-tab">Dashboards</button>
+        </nav>
+        <nav>
             <button class="nav-tab">Historial</button>
         </nav>
     </header>
@@ -82,12 +86,16 @@
                 <!-- Table Result State (Mockup 2) - Initially Hidden -->
                 <!-- Use 'display: none' in CSS or toggle class to show -->
                 <div class="results-table-container hidden" id="resultsTable">
-                    <div style="display: flex; align-items: flex-start; gap: 10px;">
-                        <table class="data-table" style="flex: 1;">
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <table class="data-table" style="width: 100%;">
                             <thead>
                                 <tr>
-                                    <th style="width: 70%;">Comentario</th>
-                                    <th style="width: 30%;">Clasificación</th>
+                                    <th style="width: 60%;">Comentario</th>
+                                    <th style="width: 25%;">Clasificación</th>
+                                    <th style="width: 15%; text-align: center;">
+                                        <button id="predictAllBtn" class="btn btn-primary"
+                                            style="padding: 4px 8px; font-size: 0.8rem;">Predecir Todo</button>
+                                    </th>
                                     <th style="width: 50px;"><button id="addManualRowBtn"
                                             class="header-add-btn">+</button></th>
                                 </tr>
@@ -97,44 +105,20 @@
                             </tbody>
                         </table>
 
-                        <!-- Side Actions Table for Alignment -->
-                        <table class="data-table" style="width: auto; background: transparent; border: none;">
-                            <thead style="background: transparent;">
-                                <tr>
-                                    <th style="background: transparent; border: none; padding: 10px 10px;">
-                                        <button id="predictAllBtn" class="btn btn-primary" title="Predecir Todo"
-                                            style="height: 100%;">Predecir Todo</button>
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody id="actionTableBody">
-                                <!-- Aligned buttons will appear here -->
-                            </tbody>
-                        </table>
+                        <!-- Predict All Button moved to header -->
                     </div>
                 </div>
 
                 <!-- CSV Preview Table Container -->
                 <div class="results-table-container hidden" id="csvPreviewTable">
-                    <div style="display: flex; align-items: flex-start; gap: 10px;">
-                        <table class="data-table" id="csvTableContent" style="flex: 1;">
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <table class="data-table" id="csvTableContent" style="width: 100%;">
                             <!-- CSV Data will be injected here -->
                         </table>
 
-                        <!-- Side Actions Table for CSV -->
-                        <table class="data-table" style="width: auto; background: transparent; border: none;">
-                            <thead style="background: transparent;">
-                                <tr>
-                                    <th style="background: transparent; border: none; padding: 10px 10px;">
-                                        <button id="predictAllCsvBtn" class="btn btn-primary" title="Predecir Todo"
-                                            style="height: 100%;">Predecir Todo</button>
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody id="csvActionTableBody">
-                                <!-- Aligned buttons will appear here -->
-                            </tbody>
-                        </table>
+                        <div style="align-self: flex-end; padding: 10px 0;">
+                            <!-- CSV Predict Button managed in script.js now -->
+                        </div>
                     </div>
                     <div class="pagination-controls" id="paginationControls">
                         <button id="prevPage" class="pagination-btn" disabled>&lt; Anterior</button>

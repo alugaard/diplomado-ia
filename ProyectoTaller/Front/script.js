@@ -13,8 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const manualTableBody = document.getElementById('manualTableBody');
     const csvPreviewTable = document.getElementById('csvPreviewTable'); // CSV table container
     const csvTableContent = document.getElementById('csvTableContent'); // CSV table content
-    const actionTableBody = document.getElementById('actionTableBody');
-    const csvActionTableBody = document.getElementById('csvActionTableBody');
+    // Removed actionTableBody and csvActionTableBody references
     const predictAllCsvBtn = document.getElementById('predictAllCsvBtn');
 
     // Inputs
@@ -162,41 +161,52 @@ document.addEventListener('DOMContentLoaded', () => {
 
         row.appendChild(tdClass);
 
-        // Action Column (for the main table, will be hidden)
+        // Column 3: Predecir Button (placeholder initially, then button)
         const actionTd = document.createElement('td');
+        actionTd.style.textAlign = 'center'; // Center the button column
+        actionTd.style.verticalAlign = 'middle';
+
+        // Placeholder or empty initially
+        actionTd.innerHTML = '&nbsp;';
+
+        row.appendChild(actionTd);
+
+        // Column 4: Add Button / Row Actions (Save Btn was here)
+        // Wait, the "Save" button logic was creating a "Lock" action.
+        // Let's adapt: The "Green Check" button was appended to 'actionTd' before.
+        // But now we have a dedicated "Predecir" column.
+        // The Green Check should probably be in the last column (where the + was in header)
+        // OR temporarily in the Predecir column?
+        // Let's stick to previous logic: There was an "Action Column" created in line 166.
+
+        // Original logic: 
+        // 1. Comment
+        // 2. Class
+        // 3. Action Td (Save Btn) -> becomes Predecir Btn? No, 'actionRowTd' became Predecir.
+
+        // New Structure:
+        // 1. Comment
+        // 2. Class
+        // 3. Predecir (New Column)
+        // 4. Save/Add (Old action column)
+
+        const toolsTd = document.createElement('td'); // For the Green Check
         const saveBtn = document.createElement('button');
         saveBtn.className = 'save-row-btn';
         saveBtn.textContent = '✔';
 
-        // Initial listener, will be overwritten
-        saveBtn.addEventListener('click', () => {
-            // This listener will be replaced below
-        });
+        toolsTd.appendChild(saveBtn);
+        row.appendChild(toolsTd);
 
-        actionTd.appendChild(saveBtn);
-        row.appendChild(actionTd);
         manualTableBody.appendChild(row);
 
-        // Add corresponding row to Action Table
-        const actionRow = document.createElement('tr');
-        const actionRowTd = document.createElement('td');
-        actionRowTd.style.border = 'none';
-        actionRowTd.style.background = 'transparent';
-        actionRowTd.style.padding = '10px'; // Match table padding
-
-        // Placeholder or empty initially
-        actionRowTd.innerHTML = '&nbsp;';
-
-        actionRow.appendChild(actionRowTd);
-        actionTableBody.appendChild(actionRow);
-
-        // Update save event to pass actionRowTd
-        saveBtn.onclick = () => { // Overwrite previous listener logic slightly to include actionRowTd
-            lockRow(row, saveBtn, actionTd, actionRowTd);
+        // Update save event to pass actionTd (the Predecir column) to be populated
+        saveBtn.onclick = () => {
+            lockRow(row, saveBtn, toolsTd, actionTd);
         };
     }
 
-    function lockRow(row, saveBtn, actionTd, actionRowTd) {
+    function lockRow(row, saveBtn, toolsTd, predictTd) {
         const inputs = row.querySelectorAll('input, textarea');
         inputs.forEach(input => {
             input.disabled = true;
@@ -206,21 +216,23 @@ document.addEventListener('DOMContentLoaded', () => {
         saveBtn.disabled = true;
         saveBtn.style.display = 'none'; // Hide save button
 
-        // Create Predict Button in the Action Table
+        // Create Predict Button in the Dedicated Predecir Column
         const predictBtn = document.createElement('button');
         predictBtn.classList.add('predict-row-btn');
         predictBtn.textContent = 'Predecir';
         predictBtn.classList.add('btn', 'btn-primary');
         predictBtn.style.fontSize = '12px';
         predictBtn.style.padding = '4px 8px';
+        predictBtn.style.display = 'inline-flex';
+        predictBtn.style.margin = '0 auto';
 
         predictBtn.addEventListener('click', (e) => {
-            predictRow(row, e.currentTarget); // Pass the button that was clicked
+            predictRow(row, e.currentTarget);
         });
 
         // Clear placeholder and add button
-        actionRowTd.innerHTML = '';
-        actionRowTd.appendChild(predictBtn);
+        predictTd.innerHTML = '';
+        predictTd.appendChild(predictBtn);
     }
 
 
@@ -332,7 +344,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderCSVTable(header, rows) {
         csvTableContent.innerHTML = '';
-        csvActionTableBody.innerHTML = '';
+        // csvActionTableBody removed
 
         // Header
         const thead = document.createElement('thead');
@@ -342,6 +354,26 @@ document.addEventListener('DOMContentLoaded', () => {
             th.textContent = cell ? cell.trim() : '';
             headerRow.appendChild(th);
         });
+
+        // Add "Predecir" Header Column with Button
+        const thAction = document.createElement('th');
+        thAction.style.textAlign = 'center';
+
+        // Create the button dynamically
+        const predictAllBtn = document.createElement('button');
+        predictAllBtn.textContent = 'Predecir Todo';
+        predictAllBtn.className = 'btn btn-primary';
+        predictAllBtn.style.padding = '4px 8px';
+        predictAllBtn.style.fontSize = '0.8rem';
+        predictAllBtn.id = 'predictAllCsvBtn'; // Re-use ID for consistency
+
+        predictAllBtn.addEventListener('click', () => {
+            predictAllCsv();
+        });
+
+        thAction.appendChild(predictAllBtn);
+        headerRow.appendChild(thAction);
+
         thead.appendChild(headerRow);
         csvTableContent.appendChild(thead);
 
@@ -390,26 +422,27 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             tbody.appendChild(row);
 
-            // Action Row
-            const actionRow = document.createElement('tr');
+            // Action Column (Predecir Button)
             const actionTd = document.createElement('td');
-            actionTd.style.border = 'none';
-            actionTd.style.background = 'transparent';
-            actionTd.style.padding = '10px';
+            actionTd.style.textAlign = 'center';
+            actionTd.style.verticalAlign = 'middle';
 
             const predictBtn = document.createElement('button');
             predictBtn.className = 'predict-row-btn btn btn-primary';
             predictBtn.textContent = 'Predecir';
             predictBtn.style.fontSize = '12px';
             predictBtn.style.padding = '4px 8px';
+            predictBtn.style.display = 'inline-flex'; // Ensure inline-flex
+            predictBtn.style.margin = '0 auto';
 
             predictBtn.addEventListener('click', (e) => {
                 predictCsvRow(globalIndex, rowData, row, e.currentTarget);
             });
 
             actionTd.appendChild(predictBtn);
-            actionRow.appendChild(actionTd);
-            csvActionTableBody.appendChild(actionRow);
+            row.appendChild(actionTd);
+
+            tbody.appendChild(row);
         });
         csvTableContent.appendChild(tbody);
     }
@@ -459,17 +492,15 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             // Iterate over all rows in manualTableBody
             const rows = manualTableBody.querySelectorAll('tr');
-            const actionRows = actionTableBody.querySelectorAll('tr');
 
             for (let i = 0; i < rows.length; i++) {
                 const row = rows[i];
-                const actionRow = actionRows[i];
-                if (actionRow) {
-                    const predictBtn = actionRow.querySelector('button');
-                    // If button exists (row is locked)
-                    if (predictBtn) {
-                        await predictRow(row, predictBtn);
-                    }
+                // Predict button is now INSIDE the row (3rd column usually)
+                const predictBtn = row.querySelector('.predict-row-btn');
+
+                // If button exists (row is locked)
+                if (predictBtn) {
+                    await predictRow(row, predictBtn);
                 }
             }
         } finally {
