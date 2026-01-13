@@ -1,2 +1,4 @@
 ProyectoTaller/app-back/.env
 .DS_Store
+*.env
+*.pyc

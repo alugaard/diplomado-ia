@@ -16,7 +16,11 @@
     <header class="top-nav">
         <nav>
             <button class="nav-tab active">Cargas</button>
+        </nav>
+        <nav>
             <button class="nav-tab">Dashboards</button>
+        </nav>
+        <nav>
             <button class="nav-tab">Historial</button>
         </nav>
     </header>
@@ -29,19 +33,28 @@
             <div class="sidebar-section">
                 <h3>Modelos predictivos</h3>
                 <label class="checkbox-wrapper">
-                    <input type="checkbox" name="custom" checked>
+                    <input type="checkbox" name="tf-idf" class="cb-tfidf" checked>
                     <span class="custom-checkbox"></span>
-                    Custom
+                    TF-IDF
+                    <span class="color-indicator bg-tfidf"></span>
                 </label>
                 <label class="checkbox-wrapper">
-                    <input type="checkbox" name="chatgpt">
+                    <input type="checkbox" name="gru" class="cb-gru">
                     <span class="custom-checkbox"></span>
-                    Chat GPT
+                    GRU
+                    <span class="color-indicator bg-gru"></span>
                 </label>
                 <label class="checkbox-wrapper">
-                    <input type="checkbox" name="gemini">
+                    <input type="checkbox" name="beto" class="cb-beto">
                     <span class="custom-checkbox"></span>
-                    Gemini
+                    BETO
+                    <span class="color-indicator bg-beto"></span>
+                </label>
+                <label class="checkbox-wrapper">
+                    <input type="checkbox" name="gemini" class="cb-gemini">
+                    <span class="custom-checkbox"></span>
+                    GEMINI
+                    <span class="color-indicator bg-gemini"></span>
                 </label>
             </div>
 
@@ -55,14 +68,14 @@
         <main class="main-content">
             <div class="content-header">
                 <div class="mode-toggle">
-                    <button class="mode-btn active">Manual</button>
-                    <button class="mode-btn">Archivo</button>
+                    <button id="archivoModeBtn" class="mode-btn active">Archivo</button>
+                    <button id="manualModeBtn" class="mode-btn">Manual</button>
                 </div>
             </div>
 
             <div class="work-area">
                 <!-- Drop Zone State (Mockup 1) -->
-                <div class="drop-zone hidden" id="dropZone">
+                <div class="drop-zone" id="dropZone">
                     <div class="drop-zone-content">
                         <div class="plus-icon" id="uploadTrigger">+</div>
                         <p>Arrastrar o cargar archivo</p>
@@ -72,13 +85,17 @@
 
                 <!-- Table Result State (Mockup 2) - Initially Hidden -->
                 <!-- Use 'display: none' in CSS or toggle class to show -->
-                <div class="results-table-container" id="resultsTable">
-                    <div style="display: flex; align-items: flex-start; gap: 10px;">
-                        <table class="data-table" style="flex: 1;">
+                <div class="results-table-container hidden" id="resultsTable">
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <table class="data-table" style="width: 100%;">
                             <thead>
                                 <tr>
-                                    <th style="width: 70%;">Comentario</th>
-                                    <th style="width: 30%;">Clasificación</th>
+                                    <th style="width: 60%;">Comentario</th>
+                                    <th style="width: 25%;">Clasificación</th>
+                                    <th style="width: 15%; text-align: center;">
+                                        <button id="predictAllBtn" class="btn btn-primary"
+                                            style="padding: 4px 8px; font-size: 0.8rem;">Predecir Todo</button>
+                                    </th>
                                     <th style="width: 50px;"><button id="addManualRowBtn"
                                             class="header-add-btn">+</button></th>
                                 </tr>
@@ -88,44 +105,20 @@
                             </tbody>
                         </table>
 
-                        <!-- Side Actions Table for Alignment -->
-                        <table class="data-table" style="width: auto; background: transparent; border: none;">
-                            <thead style="background: transparent;">
-                                <tr>
-                                    <th style="background: transparent; border: none; padding: 10px 10px;">
-                                        <button id="predictAllBtn" class="btn btn-primary" title="Predecir Todo"
-                                            style="height: 100%;">Predecir Todo</button>
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody id="actionTableBody">
-                                <!-- Aligned buttons will appear here -->
-                            </tbody>
-                        </table>
+                        <!-- Predict All Button moved to header -->
                     </div>
                 </div>
 
                 <!-- CSV Preview Table Container -->
                 <div class="results-table-container hidden" id="csvPreviewTable">
-                    <div style="display: flex; align-items: flex-start; gap: 10px;">
-                        <table class="data-table" id="csvTableContent" style="flex: 1;">
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <table class="data-table" id="csvTableContent" style="width: 100%;">
                             <!-- CSV Data will be injected here -->
                         </table>
 
-                        <!-- Side Actions Table for CSV -->
-                        <table class="data-table" style="width: auto; background: transparent; border: none;">
-                            <thead style="background: transparent;">
-                                <tr>
-                                    <th style="background: transparent; border: none; padding: 10px 10px;">
-                                        <button id="predictAllCsvBtn" class="btn btn-primary" title="Predecir Todo"
-                                            style="height: 100%;">Predecir Todo</button>
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody id="csvActionTableBody">
-                                <!-- Aligned buttons will appear here -->
-                            </tbody>
-                        </table>
+                        <div style="align-self: flex-end; padding: 10px 0;">
+                            <!-- CSV Predict Button managed in script.js now -->
+                        </div>
                     </div>
                     <div class="pagination-controls" id="paginationControls">
                         <button id="prevPage" class="pagination-btn" disabled>&lt; Anterior</button>
