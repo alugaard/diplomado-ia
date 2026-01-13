@@ -92,10 +92,13 @@ body {
 .checkbox-wrapper {
     display: flex;
     align-items: center;
-    margin-bottom: 10px;
-    font-size: 14px;
+    position: relative;
+    padding-left: 30px;
+    margin-bottom: 12px;
     cursor: pointer;
+    font-size: 14px;
     user-select: none;
+    color: var(--text-color);
 }
 
 .checkbox-wrapper input {
@@ -133,6 +136,77 @@ body {
     /* Gray background */
     border-color: #cbd5e1;
     cursor: not-allowed;
+}
+
+/* Specific Model Colors - REVERTED to neutral */
+.checkbox-wrapper input:checked+.custom-checkbox {
+    background-color: var(--primary-blue);
+    border-color: var(--primary-blue);
+}
+
+.color-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-left: auto;
+    display: inline-block;
+}
+
+/* Specific background colors for indicators (using hex for visibility, rgba for results) */
+.color-indicator.bg-tfidf {
+    background-color: #3b82f6;
+}
+
+.color-indicator.bg-gru {
+    background-color: #8b5cf6;
+}
+
+.color-indicator.bg-beto {
+    background-color: #10b981;
+}
+
+.color-indicator.bg-gemini {
+    background-color: #f59e0b;
+}
+
+/* Result Badges/Highlights */
+.model-badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 4px;
+    border-radius: 3px;
+    color: white;
+    margin-left: 5px;
+    vertical-align: middle;
+    text-transform: uppercase;
+}
+
+.bg-tfidf {
+    background-color: rgba(59, 130, 246, 0.2) !important;
+    color: inherit !important;
+}
+
+.bg-gru {
+    background-color: rgba(139, 92, 246, 0.2) !important;
+    color: inherit !important;
+}
+
+.bg-beto {
+    background-color: rgba(16, 185, 129, 0.2) !important;
+    color: inherit !important;
+}
+
+.bg-gemini {
+    background-color: rgba(245, 158, 11, 0.2) !important;
+    color: inherit !important;
+}
+
+/* Ensure manual inputs don't have their own background when colored */
+.manual-input.bg-tfidf,
+.manual-input.bg-gru,
+.manual-input.bg-beto,
+.manual-input.bg-gemini {
+    background-color: transparent !important;
 }
 
 .checkbox-wrapper input:checked:disabled+.custom-checkbox {
@@ -520,4 +594,28 @@ body {
 .data-table td {
     height: auto;
     min-height: 50px;
+}
+
+/* Loading Spinner */
+.spinner {
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(0, 0, 0, 0.1);
+    border-radius: 50%;
+    border-top-color: #3b82f6;
+    animation: spin 1s linear infinite;
+    display: inline-block;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.loading-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
 }

@@ -1,8 +1,8 @@
 document.addEventListener('DOMContentLoaded', () => {
     // Buttons
-    const manualBtn = document.querySelector('.mode-btn:first-child');
-    const archivoBtn = document.querySelector('.mode-btn:last-child');
-    const aceptarBtn = document.querySelector('.btn-primary'); // Using class, assuming it's the Aceptar button
+    const manualBtn = document.getElementById('manualModeBtn');
+    const archivoBtn = document.getElementById('archivoModeBtn');
+    const aceptarBtn = document.querySelector('.sidebar-actions .btn-primary');
     const restaurarBtn = document.querySelector('.btn-secondary');
     const addManualRowBtn = document.getElementById('addManualRowBtn');
     const predictAllBtn = document.getElementById('predictAllBtn');
@@ -40,11 +40,42 @@ document.addEventListener('DOMContentLoaded', () => {
     const itemsPerPage = 10;
 
     // --- Initialization ---
-    // Reset all checkboxes on page load
+    // Reset all checkboxes on page load EXCEPT the one checked in HTML (default)
     allCheckboxes.forEach(cb => {
-        cb.checked = false;
+        // cb.checked = false; // Removed to respect HTML default Checked
         cb.disabled = false;
+
+        // Add radio-like behavior
+        cb.addEventListener('change', function () {
+            if (this.checked) {
+                allCheckboxes.forEach(otherCb => {
+                    if (otherCb !== this) {
+                        otherCb.checked = false;
+                    }
+                });
+            }
+        });
     });
+
+    function getSelectedModelInfo() {
+        // Map names to metadata
+        const mapping = {
+            'tf-idf': { id: 'tfidf', name: 'TF-IDF', class: 'bg-tfidf' },
+            'gru': { id: 'gru', name: 'GRU', class: 'bg-gru' },
+            'beto': { id: 'beto', name: 'BETO', class: 'bg-beto' },
+            'gemini': { id: 'gemini', name: 'GEMINI', class: 'bg-gemini' }
+        };
+
+        const selected = Array.from(allCheckboxes).find(cb => cb.checked);
+        if (selected) {
+            return mapping[selected.name] || { id: selected.name, name: selected.name, class: '' };
+        }
+        return { id: 'none', name: 'None', class: '' };
+    }
+
+    function getSelectedModel() {
+        return getSelectedModelInfo().id;
+    }
 
     // --- View Switching Logic ---
 
@@ -177,14 +208,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Create Predict Button in the Action Table
         const predictBtn = document.createElement('button');
-        predictBtn.className = 'predict-row-btn';
+        predictBtn.classList.add('predict-row-btn');
         predictBtn.textContent = 'Predecir';
-        predictBtn.className = 'btn btn-primary'; // Use same style as Predict All? Or simpler?
+        predictBtn.classList.add('btn', 'btn-primary');
         predictBtn.style.fontSize = '12px';
         predictBtn.style.padding = '4px 8px';
 
-        predictBtn.addEventListener('click', () => {
-            predictRow(row, actionRowTd); // Pass actionRowTd to maybe show result there? Or just predict.
+        predictBtn.addEventListener('click', (e) => {
+            predictRow(row, e.currentTarget); // Pass the button that was clicked
         });
 
         // Clear placeholder and add button
@@ -327,6 +358,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Check if this is the "Clasificación" column
                 const isClassColumn = csvHeader[cellIndex] && (csvHeader[cellIndex].toLowerCase().includes('clasificación') || csvHeader[cellIndex].toLowerCase().includes('clasificacion'));
 
+                // Apply color if it is the classification column and has content
+                if (isClassColumn && cell && cell.trim() !== '') {
+                    const modelInfo = getSelectedModelInfo();
+                    if (modelInfo.class) {
+                        td.classList.add(modelInfo.class);
+                    }
+                }
+
                 if (isClassColumn && csvProbabilities[globalIndex]) {
                     // Wrap in tooltip
                     const tooltipContainer = document.createElement('div');
@@ -364,8 +403,8 @@ document.addEventListener('DOMContentLoaded', () => {
             predictBtn.style.fontSize = '12px';
             predictBtn.style.padding = '4px 8px';
 
-            predictBtn.addEventListener('click', () => {
-                predictCsvRow(globalIndex, rowData, row);
+            predictBtn.addEventListener('click', (e) => {
+                predictCsvRow(globalIndex, rowData, row, e.currentTarget);
             });
 
             actionTd.appendChild(predictBtn);
@@ -415,25 +454,56 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function predictAll() {
-        // Iterate over all rows in manualTableBody
-        const rows = manualTableBody.querySelectorAll('tr');
-        const actionRows = actionTableBody.querySelectorAll('tr');
+    async function predictAll() {
+        setLoading(true);
+        try {
+            // Iterate over all rows in manualTableBody
+            const rows = manualTableBody.querySelectorAll('tr');
+            const actionRows = actionTableBody.querySelectorAll('tr');
 
-        rows.forEach((row, index) => {
-            // Find corresponding action button in actionTable
-            const actionRow = actionRows[index];
-            if (actionRow) {
-                const predictBtn = actionRow.querySelector('button'); // Assuming button is the predict button
-                // If button exists (row is locked)
-                if (predictBtn && !predictBtn.disabled) {
-                    predictRow(row);
+            for (let i = 0; i < rows.length; i++) {
+                const row = rows[i];
+                const actionRow = actionRows[i];
+                if (actionRow) {
+                    const predictBtn = actionRow.querySelector('button');
+                    // If button exists (row is locked)
+                    if (predictBtn) {
+                        await predictRow(row, predictBtn);
+                    }
                 }
             }
-        });
+        } finally {
+            setLoading(false);
+        }
     }
 
-    function predictRow(row) {
+    let activeRequests = 0;
+    function setLoading(isLoading) {
+        if (isLoading) {
+            activeRequests++;
+        } else {
+            activeRequests = Math.max(0, activeRequests - 1);
+        }
+
+        const allPredictButtons = document.querySelectorAll('.predict-row-btn, #predictAllBtn, #predictAllCsvBtn');
+
+        if (activeRequests > 0) {
+            allPredictButtons.forEach(btn => {
+                if (!btn.disabled) {
+                    btn.dataset.originalContent = btn.innerHTML;
+                    btn.disabled = true;
+                    btn.innerHTML = '<div class="loading-container"><span class="spinner"></span></div>';
+                }
+            });
+        } else if (activeRequests === 0) {
+            allPredictButtons.forEach(btn => {
+                btn.disabled = false;
+                btn.innerHTML = btn.dataset.originalContent || (btn.id === 'predictAllBtn' || btn.id === 'predictAllCsvBtn' ? 'Predecir Todo' : 'Predecir');
+            });
+        }
+    }
+
+    function predictRow(row, btn) {
         const textarea = row.querySelector('textarea');
         const inputs = row.querySelectorAll('input');
 
@@ -444,7 +514,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!comentario) return; // Skip if empty?
 
-        fetch(`${API_BASE_URL}/api/predict`, {
+        const model = getSelectedModel();
+        setLoading(true);
+
+        return fetch(`${API_BASE_URL}/predict?model=${model}`, {
             method: 'POST',
             mode: 'cors', // Explicitly request CORS
             headers: {
@@ -462,9 +535,20 @@ document.addEventListener('DOMContentLoaded', () => {
             })
             .then(data => {
                 console.log('Success:', data);
+                const modelInfo = getSelectedModelInfo();
+
                 // Update Clasificación input
                 if (data.prediccion) {
                     classificationInput.value = data.prediccion;
+
+                    // Apply model color to the container (the td)
+                    const targetCell = classificationInput.closest('td');
+                    if (targetCell) {
+                        targetCell.className = modelInfo.class;
+                    }
+
+                    // Ensure input itself is transparent to show cell background
+                    classificationInput.classList.add(modelInfo.class);
                 }
 
                 // Update Probabilities Tooltip
@@ -491,6 +575,9 @@ document.addEventListener('DOMContentLoaded', () => {
             .catch((error) => {
                 console.error('Error:', error);
                 alert(`Error al predecir: ${error.message}. \n\nPosible causa: El servidor (localhost:7002) no está corriendo o no permite CORS (Cross-Origin Resource Sharing).`);
+            })
+            .finally(() => {
+                setLoading(false);
             });
     }
 
@@ -500,12 +587,10 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const btn = document.getElementById('predictAllCsvBtn');
-        const originalText = btn.textContent;
-        btn.disabled = true;
-        btn.textContent = "Prediciendo...";
+        setLoading(true);
 
-        fetch(`${API_BASE_URL}/api/predict_csv`, {
+        const model = getSelectedModel();
+        fetch(`${API_BASE_URL}/predict_csv?model=${model}`, {
             method: 'POST',
             mode: 'cors',
             headers: {
@@ -533,6 +618,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     // Update rows
                     let matchCount = 0;
+                    const modelInfo = getSelectedModelInfo();
+
                     data.forEach((item, index) => {
                         if (csvRows[index]) {
                             if (item.prediccion) {
@@ -579,12 +666,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 alert(`Error al predecir todo: ${error.message}`);
             })
             .finally(() => {
-                btn.disabled = false;
-                btn.textContent = originalText;
+                setLoading(false);
             });
     }
 
-    function predictCsvRow(globalIndex, rowData, rowElement) {
+    function predictCsvRow(globalIndex, rowData, rowElement, btn) {
         // Find indices
         const commentIndex = csvHeader.findIndex(h => h.toLowerCase().includes('comentario'));
         const classIndex = csvHeader.findIndex(h => h.toLowerCase().includes('clasificación') || h.toLowerCase().includes('clasificacion'));
@@ -595,9 +681,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const comentario = rowData[commentIndex];
-        if (!comentario) return;
+        const model = getSelectedModel();
+        setLoading(true);
 
-        fetch(`${API_BASE_URL}/api/predict`, {
+        return fetch(`${API_BASE_URL}/predict?model=${model}`, {
             method: 'POST',
             mode: 'cors',
             headers: {
@@ -616,18 +703,19 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(data => {
                 if (data.prediccion) {
                     // Update internal data
+                    const modelInfo = getSelectedModelInfo();
+                    const resultText = data.prediccion;
+
                     if (classIndex !== -1) {
-                        csvRows[globalIndex][classIndex] = data.prediccion;
+                        csvRows[globalIndex][classIndex] = resultText;
 
                         // Update UI
                         const cells = rowElement.querySelectorAll('td');
-                        if (cells[classIndex]) {
-                            cells[classIndex].textContent = data.prediccion;
-                            // Highlight change
-                            cells[classIndex].style.backgroundColor = '#e6fffa';
-                            setTimeout(() => {
-                                cells[classIndex].style.backgroundColor = '';
-                            }, 2000);
+                        const targetCell = cells[classIndex];
+                        if (targetCell) {
+                            targetCell.textContent = resultText;
+                            // Apply model color
+                            targetCell.className = modelInfo.class;
                         }
                     } else {
                         console.warn('Columna Clasificación no encontrada, no se puede actualizar la tabla visual.');
@@ -637,6 +725,9 @@ document.addEventListener('DOMContentLoaded', () => {
             })
             .catch((error) => {
                 console.error('Error:', error);
+            })
+            .finally(() => {
+                setLoading(false);
             });
     }
 
