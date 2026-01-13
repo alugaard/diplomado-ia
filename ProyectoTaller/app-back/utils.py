@@ -50,7 +50,9 @@ def load_beto_once():
     base_model = AutoModelForSequenceClassification.from_pretrained(
         BETO_BASE_MODEL,
         num_labels=3,
-    use_safetensors=True
+     use_safetensors=True,  # <--- FUERZA EL FORMATO SEGURO
+    low_cpu_mem_usage=False,
+    device_map=None
     ).to(beto_device)
 
     beto_model = PeftModel.from_pretrained(base_model, BETO_ADAPTER_PATH).to(beto_device)
