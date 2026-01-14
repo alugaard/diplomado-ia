@@ -687,3 +687,13 @@ body {
     visibility: visible;
     opacity: 1;
 }
+
+/* Empty State */
+.empty-state {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 3rem;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+}

@@ -26,6 +26,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const nextPageBtn = document.getElementById('nextPage');
     const pageIndicator = document.getElementById('pageIndicator');
 
+    // Navigation Tabs
+    const navCargas = document.getElementById('navCargas');
+    const navDashboards = document.getElementById('navDashboards');
+    const navHistorial = document.getElementById('navHistorial');
+    const contentHeader = document.querySelector('.content-header');
+
+    // Historial Elements
+    const historialView = document.getElementById('historialView');
+    const historialTableBody = document.getElementById('historialTableBody');
+    const emptyHistorialMessage = document.getElementById('emptyHistorialMessage');
+
     // State
     let fileLoaded = false;
     let csvData = [];
@@ -284,6 +295,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 fileLoaded = true;
                 currentPage = 1; // Reset to first page
                 updateArchivoView();
+                saveUploadLog(file.name); // Log the upload
             };
             reader.readAsText(file);
 
@@ -297,6 +309,52 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             alert('Por favor carga un archivo CSV válido.');
         }
+    }
+
+    // --- Upload History (localStorage) ---
+
+    function saveUploadLog(fileName) {
+        const history = JSON.parse(localStorage.getItem('uploadHistory') || '[]');
+        const entry = {
+            fileName: fileName,
+            uploadTime: new Date().toISOString(),
+            uploader: 'Anónimo'
+        };
+        history.unshift(entry); // Add to beginning (newest first)
+        localStorage.setItem('uploadHistory', JSON.stringify(history));
+    }
+
+    function loadUploadHistory() {
+        const history = JSON.parse(localStorage.getItem('uploadHistory') || '[]');
+        historialTableBody.innerHTML = '';
+
+        if (history.length === 0) {
+            emptyHistorialMessage.classList.remove('hidden');
+            document.getElementById('historialTable').classList.add('hidden');
+            return;
+        }
+
+        emptyHistorialMessage.classList.add('hidden');
+        document.getElementById('historialTable').classList.remove('hidden');
+
+        history.forEach(entry => {
+            const row = document.createElement('tr');
+
+            const tdFile = document.createElement('td');
+            tdFile.textContent = entry.fileName;
+
+            const tdTime = document.createElement('td');
+            const date = new Date(entry.uploadTime);
+            tdTime.textContent = date.toLocaleString('es-CL');
+
+            const tdUser = document.createElement('td');
+            tdUser.textContent = entry.uploader;
+
+            row.appendChild(tdFile);
+            row.appendChild(tdTime);
+            row.appendChild(tdUser);
+            historialTableBody.appendChild(row);
+        });
     }
 
     function parseCSV(text) {
@@ -832,4 +890,41 @@ document.addEventListener('DOMContentLoaded', () => {
         // Update View
         updateArchivoView();
     });
+
+    // --- Navigation Tab Switching ---
+
+    function showCargasView() {
+        navCargas.classList.add('active');
+        navDashboards.classList.remove('active');
+        navHistorial.classList.remove('active');
+
+        contentHeader.classList.remove('hidden');
+        historialView.classList.add('hidden');
+
+        // Restore Cargas sub-view state
+        if (manualBtn.classList.contains('active')) {
+            showManualView();
+        } else {
+            showArchivoView();
+        }
+    }
+
+    function showHistorialView() {
+        navCargas.classList.remove('active');
+        navDashboards.classList.remove('active');
+        navHistorial.classList.add('active');
+
+        // Hide Cargas sub-views
+        contentHeader.classList.add('hidden');
+        dropZone.classList.add('hidden');
+        resultsTable.classList.add('hidden');
+        csvPreviewTable.classList.add('hidden');
+
+        // Show Historial
+        historialView.classList.remove('hidden');
+        loadUploadHistory();
+    }
+
+    navCargas.addEventListener('click', showCargasView);
+    navHistorial.addEventListener('click', showHistorialView);
 });

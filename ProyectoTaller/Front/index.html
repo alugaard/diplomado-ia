@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cargas</title>
-    <link rel="stylesheet" href="style.css?v=6">
+    <link rel="stylesheet" href="style.css?v=7">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -70,7 +70,7 @@
             <header class="top-nav">
                 <nav
                     style="display: flex; background: var(--border-subtle); padding: 4px; border-radius: var(--radius-md);">
-                    <button class="nav-tab active">
+                    <button id="navCargas" class="nav-tab active">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                             stroke-width="2">
                             <path
@@ -81,7 +81,7 @@
                         </svg>
                         Cargas
                     </button>
-                    <button class="nav-tab">
+                    <button id="navDashboards" class="nav-tab">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                             stroke-width="2">
                             <rect x="3" y="3" width="7" height="9"></rect>
@@ -91,7 +91,7 @@
                         </svg>
                         Dashboards
                     </button>
-                    <button class="nav-tab">
+                    <button id="navHistorial" class="nav-tab">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                             stroke-width="2">
                             <circle cx="12" cy="12" r="10"></circle>
@@ -161,13 +161,31 @@
                         <button id="nextPage" class="pagination-btn">Siguiente &gt;</button>
                     </div>
                 </div>
+                <!-- Historial View -->
+                <div class="results-table-container hidden" id="historialView">
+                    <table class="data-table" id="historialTable">
+                        <thead>
+                            <tr>
+                                <th>Archivo</th>
+                                <th>Fecha de Carga</th>
+                                <th>Usuario</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historialTableBody">
+                            <!-- History entries will be added here dynamically -->
+                        </tbody>
+                    </table>
+                    <div id="emptyHistorialMessage" class="empty-state hidden">
+                        <p>No hay archivos en el historial.</p>
+                    </div>
+                </div>
 
             </div>
         </main>
     </div>
 
-    <script src="config.js?v=6"></script>
-    <script src="script.js?v=6"></script>
+    <script src="config.js?v=7"></script>
+    <script src="script.js?v=7"></script>
 </body>
 
 </html>
