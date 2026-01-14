@@ -473,6 +473,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
 
+    // --- Helper Function ---
+    function formatProbabilities(probObj) {
+        if (!probObj) return '';
+        // sort by value descending for better readability? Optional but nice.
+        // User just asked for "Label: Value".
+        return Object.entries(probObj)
+            .map(([label, score]) => `${label}: ${Number(score).toFixed(4)}`)
+            .join('\n');
+    }
+
     // --- Prediction Logic ---
 
     if (predictAllBtn) {
@@ -597,9 +607,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (tooltipText && data.probabilidad) {
                     // Format: "Label: 0.50\nLabel: 0.30"
-                    const probText = Object.entries(data.probabilidad)
-                        .map(([label, score]) => `${label}: ${score.toFixed(2)}`)
-                        .join('\n');
+                    const probText = formatProbabilities(data.probabilidad);
                     tooltipText.textContent = probText;
                 }
             })
@@ -659,9 +667,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             }
                             // Store formatted probability text
                             if (item.probabilidad) {
-                                const probText = Object.entries(item.probabilidad)
-                                    .map(([k, v]) => `${k}: ${v.toFixed(2)}`)
-                                    .join('\n');
+                                const probText = formatProbabilities(item.probabilidad);
                                 csvProbabilities[index] = probText;
                             }
                         }
@@ -740,13 +746,38 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (classIndex !== -1) {
                         csvRows[globalIndex][classIndex] = resultText;
 
+                        // Update Probabilities
+                        if (data.probabilidad) {
+                            const probText = formatProbabilities(data.probabilidad);
+                            csvProbabilities[globalIndex] = probText;
+                        }
+
                         // Update UI
                         const cells = rowElement.querySelectorAll('td');
                         const targetCell = cells[classIndex];
                         if (targetCell) {
-                            targetCell.textContent = resultText;
-                            // Apply model color
-                            targetCell.className = modelInfo.class;
+                            targetCell.innerHTML = ''; // Clear content
+                            targetCell.className = ''; // Reset class
+                            targetCell.classList.add(modelInfo.class); // Apply generic class
+
+                            if (csvProbabilities[globalIndex]) {
+                                // Recreate Tooltip Structure
+                                const tooltipContainer = document.createElement('div');
+                                tooltipContainer.className = 'tooltip-container';
+
+                                const spanContent = document.createElement('span');
+                                spanContent.textContent = resultText;
+
+                                const tooltipText = document.createElement('span');
+                                tooltipText.className = 'tooltip-text';
+                                tooltipText.textContent = csvProbabilities[globalIndex];
+
+                                tooltipContainer.appendChild(spanContent);
+                                tooltipContainer.appendChild(tooltipText);
+                                targetCell.appendChild(tooltipContainer);
+                            } else {
+                                targetCell.textContent = resultText;
+                            }
                         }
                     } else {
                         console.warn('Columna Clasificación no encontrada, no se puede actualizar la tabla visual.');
