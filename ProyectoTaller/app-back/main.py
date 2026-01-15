@@ -82,8 +82,8 @@ def predict_csv():
             preds, probas, class_names = predict_texts(comentarios)
         if modelo_elegido == 'tfidf':
             preds, probas, class_names = predict_textsClasico(comentarios)
-    #else :
-    #    preds, probas, class_names = predict_textsGeminis(comentarios)
+    else :
+        preds, probas, class_names = predict_textsGeminis(comentarios)
 
     resultados = []
     for i, texto in enumerate(comentarios):

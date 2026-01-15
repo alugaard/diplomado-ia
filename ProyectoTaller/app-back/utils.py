@@ -261,65 +261,66 @@ from google import genai
 
 def predict_textsGeminis(comentarios: list):
     """
-    Procesa una lista de comentarios uno por uno para Gemini.
-    Retorna:
-      preds: list[str] (Las etiquetas predichas)
-      probas: list[list[float]] (Matriz de probabilidades)
-      class_names: list[str] (Nombres de las clases en orden)
+    Procesa una lista completa de comentarios en una sola petición a Gemini.
     """
     API_KEY = api_key
     client = genai.Client(vertexai=False, api_key=API_KEY)
     
-    # Orden de clases consistente para que el frontend/CSV sea legible
-    class_names = ['Felicitaciones y Agradecimientos', 'Reclamo', 'Sugerencia']
+
     
+    # 1. Unimos todos los comentarios en un solo string separado por '---'
+    texto_unido = "\n---\n".join(comentarios)
+
+    # 2. Adaptamos tu prompt experto para procesar la lista completa
+    prompt = """
+    Eres un experto en clasificación de comentarios sobre productos y atenciones de una plataforma líder de comercio electrónico y 
+    servicios fintech. Tu tarea es leer los comentarios en español y asignarle a una y solo una de las siguientes categorías: 
+    'Sugerencia', 'Felicitaciones y Agradecimientos' o 'Reclamo'. Debes responder solo con una de estas tres etiquetas: 
+    'Sugerencia', 'Felicitaciones y Agradecimientos' o 'Reclamo'. Devuelve un array con cada JSON estrictamente con esta estructura:
+    {'comentario': str, 'prediccion': str, 'probabilidad': dict}. IMPORTANTE: Usa solo comillas dobles, no incluyas 
+    etiquetas markdown como ```json.  Ejemplos de estos serian. Deberían implementar una herramienta visible para 
+    que el usuario pueda verificar el estado de su contraseña (ej. expirada/activa). Clasificación: Sugerencia. 
+    Aprecio que las impresoras sean multifuncionales (imprimir, escanear, copiar). Clasificación:
+     Felicitaciones y Agradecimientos . El sistema de restablecimiento me pide una pregunta de seguridad 
+     que nunca configuré o no recuerdo. Clasificación: Reclamo. Estos son los comentarios los cuales te los separe 
+     con '---' para que me entregues las clasificacion de cada uno en un json con la estructura que te dije
+      y todo eso dentro de un array:"""+ texto_unido
+
+    print("ESTE SERA EL PROMPT:")
+    print(prompt)
+
     preds = []
     probas = []
 
-    for texto in comentarios:
-        # Si el texto está vacío, saltamos o ponemos valores por defecto
-        if not texto.strip():
-            preds.append("N/A")
-            probas.append([0.0, 0.0, 0.0])
-            continue
+    class_names = ['Felicitaciones y Agradecimientos', 'Reclamo', 'Sugerencia']
 
-        prompt = f"""Eres un experto en clasificación. Clasifica el siguiente comentario en una de estas categorías: {class_names}.
-        Devuelve un JSON estrictamente con esta estructura:
-        {{
-          "prediccion": "nombre_de_la_categoria",
-          "probabilidades": {{
-            "Felicitaciones y Agradecimientos": 0.0,
-            "Reclamo": 0.0,
-            "Sugerencia": 0.0
-          }}
-        }}
-        IMPORTANTE: Usa solo comillas dobles, no incluyas etiquetas markdown.
-        Comentario: {texto}"""
-
-        try:
-            response = client.models.generate_content(
-                model="gemini-2.0-flash", 
-                contents=prompt
-            )
+    try:
+        # 3. Una única llamada a la API
+        response = client.models.generate_content(
+            model="gemini-2.5-flash", 
+            contents=prompt
+        )
+        
+        # Limpieza y carga de la lista de diccionarios
+        raw_text = response.text.replace("```json", "").replace("```", "").strip()
+        print("respuesta geminis:")
+        print (raw_text)
+        res_list = json.loads(raw_text)
+        
+        # 4. Iteramos los resultados obtenidos para llenar las listas finales
+        for item in res_list:
+            preds.append(item.get("prediccion"))
             
-            # Limpieza y carga del JSON
-            res_dict = json.loads(response.text.replace("```json", "").replace("```", "").strip())
-            
-            # Guardamos la predicción (etiqueta)
-            preds.append(res_dict.get("prediccion"))
-            
-            # Extraemos las probabilidades en el orden de class_names
-            p_dict = res_dict.get("probabilidades", {})
+            p_dict = item.get("probabilidad", {})
             p_lista = [float(p_dict.get(clase, 0.0)) for clase in class_names]
             probas.append(p_lista)
 
-            # Opcional: Pequeña pausa para no saturar la cuota de la API (Rate Limit)
-            # time.sleep(0.1) 
-
-        except Exception as e:
-            print(f"Error en comentario '{texto[:30]}...': {e}")
-            preds.append("Error")
-            probas.append([0.0, 0.0, 0.0])
+    except Exception as e:
+        print(f"Error en la petición masiva: {e}")
+        # En caso de error general, podrías llenar con valores por defecto 
+        # según el tamaño de la lista original
+        preds = ["Error"] * len(comentarios)
+        probas = [[0.0, 0.0, 0.0]] * len(comentarios)
 
     return preds, probas, class_names
 
