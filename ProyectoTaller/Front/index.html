@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cargas</title>
-    <link rel="stylesheet" href="style.css?v=7">
+    <link rel="stylesheet" href="style.css?v=10">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -169,6 +169,7 @@
                                 <th>Archivo</th>
                                 <th>Fecha de Carga</th>
                                 <th>Usuario</th>
+                                <th>Acciones</th>
                             </tr>
                         </thead>
                         <tbody id="historialTableBody">
@@ -184,8 +185,24 @@
         </main>
     </div>
 
-    <script src="config.js?v=7"></script>
-    <script src="script.js?v=7"></script>
+    <!-- Modal for CSV Preview -->
+    <div id="csvModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Vista Previa</h3>
+                <button id="modalCloseBtn" class="modal-close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <table class="data-table" id="modalTable">
+                    <thead id="modalTableHead"></thead>
+                    <tbody id="modalTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="config.js?v=10"></script>
+    <script src="script.js?v=10"></script>
 </body>
 
 </html>

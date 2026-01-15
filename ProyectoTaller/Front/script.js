@@ -318,10 +318,22 @@ document.addEventListener('DOMContentLoaded', () => {
         const entry = {
             fileName: fileName,
             uploadTime: new Date().toISOString(),
-            uploader: 'Anónimo'
+            uploader: 'Anónimo',
+            csvHeader: csvHeader,
+            csvRows: csvRows
         };
         history.unshift(entry); // Add to beginning (newest first)
         localStorage.setItem('uploadHistory', JSON.stringify(history));
+    }
+
+    function updateLatestHistoryEntry() {
+        const history = JSON.parse(localStorage.getItem('uploadHistory') || '[]');
+        if (history.length > 0) {
+            history[0].csvHeader = csvHeader;
+            history[0].csvRows = csvRows;
+            history[0].modelClass = getSelectedModelInfo().class; // Store model color
+            localStorage.setItem('uploadHistory', JSON.stringify(history));
+        }
     }
 
     function loadUploadHistory() {
@@ -337,7 +349,7 @@ document.addEventListener('DOMContentLoaded', () => {
         emptyHistorialMessage.classList.add('hidden');
         document.getElementById('historialTable').classList.remove('hidden');
 
-        history.forEach(entry => {
+        history.forEach((entry, index) => {
             const row = document.createElement('tr');
 
             const tdFile = document.createElement('td');
@@ -350,12 +362,87 @@ document.addEventListener('DOMContentLoaded', () => {
             const tdUser = document.createElement('td');
             tdUser.textContent = entry.uploader;
 
+            const tdActions = document.createElement('td');
+            const viewBtn = document.createElement('button');
+            viewBtn.className = 'view-btn';
+            viewBtn.textContent = 'Ver';
+            viewBtn.addEventListener('click', () => openModal(index));
+            tdActions.appendChild(viewBtn);
+
             row.appendChild(tdFile);
             row.appendChild(tdTime);
             row.appendChild(tdUser);
+            row.appendChild(tdActions);
             historialTableBody.appendChild(row);
         });
     }
+
+    // --- Modal Logic ---
+
+    const csvModal = document.getElementById('csvModal');
+    const modalCloseBtn = document.getElementById('modalCloseBtn');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalTableHead = document.getElementById('modalTableHead');
+    const modalTableBody = document.getElementById('modalTableBody');
+
+    function openModal(entryIndex) {
+        const history = JSON.parse(localStorage.getItem('uploadHistory') || '[]');
+        const entry = history[entryIndex];
+        if (!entry) return;
+
+        modalTitle.textContent = entry.fileName;
+        modalTableHead.innerHTML = '';
+        modalTableBody.innerHTML = '';
+
+        // Render Header
+        if (entry.csvHeader && entry.csvHeader.length > 0) {
+            const headerRow = document.createElement('tr');
+            entry.csvHeader.forEach(cell => {
+                const th = document.createElement('th');
+                th.textContent = cell;
+                headerRow.appendChild(th);
+            });
+            modalTableHead.appendChild(headerRow);
+        }
+
+        // Find classification column index
+        let classColIndex = -1;
+        if (entry.csvHeader) {
+            classColIndex = entry.csvHeader.findIndex(h =>
+                h.toLowerCase().includes('clasificación') || h.toLowerCase().includes('clasificacion')
+            );
+        }
+
+        // Render Rows
+        if (entry.csvRows && entry.csvRows.length > 0) {
+            entry.csvRows.forEach(rowData => {
+                const row = document.createElement('tr');
+                rowData.forEach((cell, cellIndex) => {
+                    const td = document.createElement('td');
+                    td.textContent = cell ? cell.trim() : '';
+
+                    // Apply model color to classification column
+                    if (cellIndex === classColIndex && cell && cell.trim() !== '' && entry.modelClass) {
+                        td.classList.add(entry.modelClass);
+                    }
+
+                    row.appendChild(td);
+                });
+                modalTableBody.appendChild(row);
+            });
+        }
+
+        csvModal.classList.remove('hidden');
+    }
+
+    function closeModal() {
+        csvModal.classList.add('hidden');
+    }
+
+    modalCloseBtn.addEventListener('click', closeModal);
+    csvModal.addEventListener('click', (e) => {
+        if (e.target === csvModal) closeModal();
+    });
 
     function parseCSV(text) {
         // Simple CSV parser (assumes semi-colon separated)
@@ -732,6 +819,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
 
                     renderCurrentPage();
+                    updateLatestHistoryEntry(); // Update history with predictions
 
                 } else if (data.archivo) {
                     // Fallback for Base64 if needed, or remove if strictly JSON now.
@@ -762,6 +850,7 @@ document.addEventListener('DOMContentLoaded', () => {
             })
             .finally(() => {
                 setLoading(false);
+                updateLatestHistoryEntry(); // Update history after single row prediction
             });
     }
 
