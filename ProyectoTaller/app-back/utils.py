@@ -104,9 +104,9 @@ def predict_text(texto: str, tipo_modelo="beto"):
     return pred, proba_dict
 
 
-def predict_texts(textos):
+def predict_texts(textos, batch_size=32):
     """
-    Igual estilo que predict_textsGru:
+    Stilo predict_textsGru optimizado para BETO, procesando en mini-batches.
     return:
       preds: list[str]
       probas: list[list[float]]
@@ -115,30 +115,41 @@ def predict_texts(textos):
     load_beto_once()
 
     import torch
+    from tqdm import tqdm
+    import numpy as np
 
-    # Tokenizar en batch
-    enc = beto_tokenizer(
-        textos,
-        truncation=True,
-        padding="max_length",
-        max_length=BETO_MAX_LEN,
-        return_tensors="pt"
-    )
-    enc = {k: v.to(beto_device) for k, v in enc.items()}
+    # Listas para acumular resultados de todos los batches
+    all_preds = []
+    all_probas = []
 
-    with torch.no_grad():
-        logits = beto_model(**enc).logits  # [B, C]
-        probs = torch.softmax(logits, dim=1).detach().cpu().numpy()
+    # Procesar en mini-batches
+    for i in tqdm(range(0, len(textos), batch_size), desc="Clasificando comentarios"):
+        batch_textos = textos[i:i + batch_size]
 
-        pred_ids = torch.argmax(logits, dim=1).detach().cpu().numpy().tolist()
+        # Tokenizar el batch actual
+        enc = beto_tokenizer(
+            batch_textos,
+            truncation=True,
+            padding="max_length",
+            max_length=BETO_MAX_LEN,
+            return_tensors="pt"
+        )
+        enc = {k: v.to(beto_device) for k, v in enc.items()}
 
-    # convertir ids -> etiquetas
-    preds = beto_encoder.inverse_transform(pred_ids).tolist()
+        # Inferencia sin cálculo de gradientes
+        with torch.no_grad():
+            logits = beto_model(**enc).logits  # [B, C]
+            probs = torch.softmax(logits, dim=1).detach().cpu().numpy()
+            pred_ids = torch.argmax(logits, dim=1).detach().cpu().numpy()
 
-    # nombres de clases (en orden de columnas)
-    class_names = beto_encoder.inverse_transform(list(range(probs.shape[1]))).tolist()
+        # Acumular resultados del batch
+        all_probas.extend(probs.tolist())
+        all_preds.extend(beto_encoder.inverse_transform(pred_ids).tolist())
 
-    return preds, probs.tolist(), class_names
+    # Nombres de clases (se obtienen una vez)
+    class_names = beto_encoder.classes_.tolist()
+
+    return all_preds, all_probas, class_names
 
 # ===============================
 #            GRU o tfidf / CLÁSICO

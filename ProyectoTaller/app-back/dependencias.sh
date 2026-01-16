@@ -33,7 +33,7 @@ conda activate nps_api
 # numpy, scipy → operaciones numéricas usadas internamente
 conda install flask joblib scikit-learn numpy scipy pandas requests openai flask-cors -y
 conda install pytorch torchvision torchaudio -c pytorch -y
-pip install transformers peft accelerate
+pip install transformers peft accelerate tqdm
 pip install --upgrade google-genai
 pip install python-dotenv
 
