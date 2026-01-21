@@ -466,6 +466,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target === csvModal) closeModal();
     });
 
+    function rowsToCsvBase64(headers, rows) {
+        // Use semicolon as separator to match current parser
+        const csvContent = [headers.join(';'), ...rows.map(row => row.join(';'))].join('\n');
+        // Handle UTF-8 safely for btoa
+        const bytes = new TextEncoder().encode(csvContent);
+        let binary = '';
+        for (let i = 0; i < bytes.byteLength; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        return btoa(binary);
+    }
+
     function parseCSV(text) {
         // Simple CSV parser (assumes semi-colon separated)
         const rows = text.trim().split('\n');
@@ -857,91 +869,84 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function predictAllCsv() {
-        if (!currentFileBase64) {
-            alert("No hay archivo cargado para predecir.");
+        if (csvRows.length === 0) {
+            alert("No hay datos para predecir.");
             return;
         }
 
         setLoading(true);
 
+        const batchSize = 100;
+        const totalRows = csvRows.length;
+        const batches = [];
+
+        for (let i = 0; i < totalRows; i += batchSize) {
+            batches.push({
+                startIndex: i,
+                rows: csvRows.slice(i, i + batchSize)
+            });
+        }
+
         const model = getSelectedModel();
-        fetch(`${API_BASE_URL}/predict_csv?model=${model}`, {
-            method: 'POST',
-            mode: 'cors',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                archivo: currentFileBase64
+        const classIndex = csvHeader.findIndex(h => h.toLowerCase().includes('clasificación') || h.toLowerCase().includes('clasificacion'));
+
+        if (classIndex === -1) {
+            alert('Error: No se encontró la columna "Clasificación" en la tabla.');
+            setLoading(false);
+            return;
+        }
+
+        const fetchPromises = batches.map(batch => {
+            const batchBase64 = rowsToCsvBase64(csvHeader, batch.rows);
+            return fetch(`${API_BASE_URL}/predict_csv?model=${model}`, {
+                method: 'POST',
+                mode: 'cors',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    archivo: batchBase64
+                })
             })
-        })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`Server returned ${response.status}: ${response.statusText}`);
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (Array.isArray(data)) {
-                    // Find Classification Column Index
-                    const classIndex = csvHeader.findIndex(h => h.toLowerCase().includes('clasificación') || h.toLowerCase().includes('clasificacion'));
-
-                    if (classIndex === -1) {
-                        alert('Error: No se encontró la columna "Clasificación" en la tabla.');
-                        return;
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Batch starting at ${batch.startIndex} failed: ${response.statusText}`);
                     }
-
-                    // Update rows
-                    let matchCount = 0;
-                    const modelInfo = getSelectedModelInfo();
-
-                    data.forEach((item, index) => {
-                        if (csvRows[index]) {
-                            if (item.prediccion) {
-                                csvRows[index][classIndex] = item.prediccion;
-                                matchCount++;
+                    return response.json();
+                })
+                .then(data => {
+                    if (Array.isArray(data)) {
+                        data.forEach((item, index) => {
+                            const globalIndex = batch.startIndex + index;
+                            if (csvRows[globalIndex]) {
+                                if (item.prediccion) {
+                                    csvRows[globalIndex][classIndex] = item.prediccion;
+                                }
+                                // Store formatted probability text
+                                if (item.probabilidad) {
+                                    const probText = formatProbabilities(item.probabilidad);
+                                    csvProbabilities[globalIndex] = probText;
+                                }
                             }
-                            // Store formatted probability text
-                            if (item.probabilidad) {
-                                const probText = formatProbabilities(item.probabilidad);
-                                csvProbabilities[index] = probText;
-                            }
-                        }
-                    });
-
-                    renderCurrentPage();
-                    updateLatestHistoryEntry(); // Update history with predictions
-
-                } else if (data.archivo) {
-                    // Fallback for Base64 if needed, or remove if strictly JSON now.
-                    // Keeping previous logic commented out or just replacing it entirely as requested.
-                    // The user said "This is the api response", implying the other one was wrong.
-                    console.warn("Received 'archivo' format but expected JSON array. Trying legacy decode...");
-                    // ... (legacy decode logic could go here if we wanted to support both, but let's stick to the request)
-                    try {
-                        const binaryString = atob(data.archivo);
-                        const bytes = new Uint8Array(binaryString.length);
-                        for (let i = 0; i < binaryString.length; i++) {
-                            bytes[i] = binaryString.charCodeAt(i);
-                        }
-                        const decodedCsv = new TextDecoder().decode(bytes);
-                        parseCSV(decodedCsv);
-                        renderCurrentPage();
-                    } catch (e) {
-                        alert("Formato de respuesta no reconocido.");
+                        });
+                    } else if (data.archivo) {
+                        // Handle case where server might return base64 instead of array
+                        console.warn("Received 'archivo' format in batch. This is unexpected for batched JSON processing.");
                     }
-                } else {
-                    console.warn("Respuesta inesperada:", data);
-                    alert("La respuesta del servidor no tiene el formato esperado (Array de predicciones).");
-                }
+                });
+        });
+
+        Promise.all(fetchPromises)
+            .then(() => {
+                renderCurrentPage();
+                updateLatestHistoryEntry();
             })
             .catch(error => {
-                console.error('Error:', error);
-                alert(`Error al predecir todo: ${error.message}`);
+                console.error('Error in batch processing:', error);
+                alert(`Error al procesar lotes: ${error.message}`);
             })
             .finally(() => {
                 setLoading(false);
-                updateLatestHistoryEntry(); // Update history after single row prediction
             });
     }
 
