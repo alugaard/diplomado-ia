@@ -237,6 +237,45 @@ body {
     box-shadow: var(--shadow-sm);
 }
 
+.refresh-context-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: var(--transition-base);
+}
+
+.refresh-context-btn:hover {
+    background-color: var(--bg-surface);
+    color: var(--primary);
+}
+
+.delete-row-btn {
+    background: #fee2e2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: var(--transition-base);
+    margin: 0 auto;
+}
+
+.delete-row-btn:hover {
+    background: #fecaca;
+    color: #b91c1c;
+}
+
 .btn {
     display: inline-flex;
     align-items: center;
@@ -773,4 +812,24 @@ body {
 .view-btn:hover {
     background: var(--primary);
     color: white;
+}
+
+/* Toggle Column Button */
+.toggle-col-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 0.9rem;
+    padding: 2px 4px;
+    opacity: 0.6;
+    transition: var(--transition-base);
+}
+
+.toggle-col-btn:hover {
+    opacity: 1;
+}
+
+/* Hidden Column */
+.col-hidden {
+    display: none;
 }

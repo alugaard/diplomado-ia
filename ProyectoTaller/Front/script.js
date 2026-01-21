@@ -2,8 +2,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Buttons
     const manualBtn = document.getElementById('manualModeBtn');
     const archivoBtn = document.getElementById('archivoModeBtn');
-    const aceptarBtn = document.querySelector('.sidebar-actions .btn-primary');
-    const restaurarBtn = document.querySelector('.btn-secondary');
+    // Removed sidebar buttons
+    const archiveRefreshBtn = document.getElementById('archiveRefreshBtn');
+    const manualRefreshBtn = document.getElementById('manualRefreshBtn');
     const addManualRowBtn = document.getElementById('addManualRowBtn');
     const predictAllBtn = document.getElementById('predictAllBtn');
 
@@ -44,6 +45,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let csvRows = [];
     let csvProbabilities = []; // Store probability data separately
     let currentFileBase64 = null;
+    let showOriginalClass = false; // Toggle for "Clasificación Original" column
+    let originalClassIndex = -1; // Index of the original classification column
 
     // Pagination State
     let currentPage = 1;
@@ -93,6 +96,10 @@ document.addEventListener('DOMContentLoaded', () => {
         manualBtn.classList.add('active');
         archivoBtn.classList.remove('active');
 
+        // Contextual Buttons Visibility
+        manualRefreshBtn.style.display = 'flex';
+        archiveRefreshBtn.style.display = 'none';
+
         // Always show manual table in Manual mode, hide others
         dropZone.classList.add('hidden');
         csvPreviewTable.classList.add('hidden');
@@ -102,6 +109,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function showArchivoView() {
         archivoBtn.classList.add('active');
         manualBtn.classList.remove('active');
+
+        // Contextual Buttons Visibility
+        archiveRefreshBtn.style.display = 'flex';
+        manualRefreshBtn.style.display = 'none';
 
         // Hide manual table
         resultsTable.classList.add('hidden');
@@ -237,13 +248,24 @@ document.addEventListener('DOMContentLoaded', () => {
         predictBtn.style.display = 'inline-flex';
         predictBtn.style.margin = '0 auto';
 
-        predictBtn.addEventListener('click', (e) => {
-            predictRow(row, e.currentTarget);
-        });
+        // Add Delete Button (Red Cross) to the Actions Column
+        toolsTd.innerHTML = ''; // Clear the green check
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'delete-row-btn';
+        deleteBtn.innerHTML = '&times;'; // Cross icon
+        deleteBtn.title = 'Eliminar fila';
+        deleteBtn.onclick = () => {
+            row.remove();
+        };
+        toolsTd.appendChild(deleteBtn);
 
         // Clear placeholder and add button
         predictTd.innerHTML = '';
         predictTd.appendChild(predictBtn);
+
+        predictBtn.addEventListener('click', () => {
+            predictRow(row, predictBtn);
+        });
     }
 
 
@@ -453,10 +475,30 @@ document.addEventListener('DOMContentLoaded', () => {
             csvHeader = data[0].map(h => h.trim()); // Trim headers
             csvRows = data.slice(1);
 
-            // Ensure "Clasificación" column exists
+            // Check if "Clasificación" column exists
             const classIndex = csvHeader.findIndex(h => h.toLowerCase().includes('clasificación') || h.toLowerCase().includes('clasificacion'));
 
-            if (classIndex === -1) {
+            if (classIndex !== -1) {
+                // Store original classification values
+                const originalValues = csvRows.map(row => row[classIndex] || '');
+
+                // Insert "Clasificación Original" column right after "Clasificación"
+                csvHeader.splice(classIndex + 1, 0, 'Clasificación Original');
+                originalClassIndex = classIndex + 1;
+
+                // Insert original values into new column and clear prediction column
+                csvRows = csvRows.map((row, i) => {
+                    // Ensure row has enough columns
+                    while (row.length < classIndex + 1) row.push('');
+                    // Insert original value at new column position
+                    row.splice(classIndex + 1, 0, originalValues[i]);
+                    // Clear the "Clasificación" column for new predictions
+                    row[classIndex] = '';
+                    return row;
+                });
+            } else {
+                // No existing column, just add new "Clasificación"
+                originalClassIndex = -1;
                 csvHeader.push('Clasificación');
                 csvRows = csvRows.map(row => {
                     while (row.length < csvHeader.length - 1) row.push('');
@@ -464,6 +506,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     return row;
                 });
             }
+
+            // Reset visibility state
+            showOriginalClass = false;
 
             // Initialize probabilities array matching rows
             csvProbabilities = new Array(csvRows.length).fill(null);
@@ -494,9 +539,46 @@ document.addEventListener('DOMContentLoaded', () => {
         // Header
         const thead = document.createElement('thead');
         const headerRow = document.createElement('tr');
-        header.forEach(cell => {
+        header.forEach((cell, cellIndex) => {
             const th = document.createElement('th');
-            th.textContent = cell ? cell.trim() : '';
+            const headerText = cell ? cell.trim() : '';
+
+            // Check if this is the "Clasificación Original" column
+            if (headerText === 'Clasificación Original') {
+                th.className = showOriginalClass ? '' : 'col-hidden';
+                th.textContent = headerText;
+            } else if (headerText === 'Clasificación') {
+                // If we have an original column to toggle
+                if (originalClassIndex !== -1) {
+                    const headerContainer = document.createElement('div');
+                    headerContainer.style.display = 'flex';
+                    headerContainer.style.alignItems = 'center';
+                    headerContainer.style.gap = '0.5rem';
+
+                    const textSpan = document.createElement('span');
+                    textSpan.textContent = headerText;
+
+                    const toggleBtn = document.createElement('button');
+                    toggleBtn.className = 'toggle-col-btn';
+                    // Show "expand" arrow if hidden, "collapse" arrow if shown
+                    toggleBtn.innerHTML = showOriginalClass ? '→' : '←';
+                    toggleBtn.title = showOriginalClass ? 'Ocultar Clasificación Original' : 'Mostrar Clasificación Original';
+                    toggleBtn.addEventListener('click', (e) => {
+                        e.stopPropagation(); // Prevent any sorting if added later
+                        showOriginalClass = !showOriginalClass;
+                        renderCurrentPage();
+                    });
+
+                    headerContainer.appendChild(toggleBtn);
+                    headerContainer.appendChild(textSpan);
+                    th.appendChild(headerContainer);
+                } else {
+                    th.textContent = headerText;
+                }
+            } else {
+                th.textContent = headerText;
+            }
+
             headerRow.appendChild(th);
         });
 
@@ -531,9 +613,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
             rowData.forEach((cell, cellIndex) => {
                 const td = document.createElement('td');
+                const headerName = csvHeader[cellIndex] ? csvHeader[cellIndex].trim() : '';
 
-                // Check if this is the "Clasificación" column
-                const isClassColumn = csvHeader[cellIndex] && (csvHeader[cellIndex].toLowerCase().includes('clasificación') || csvHeader[cellIndex].toLowerCase().includes('clasificacion'));
+                // Check if this is the "Clasificación Original" column
+                if (headerName === 'Clasificación Original') {
+                    td.className = showOriginalClass ? '' : 'col-hidden';
+                    td.textContent = cell ? cell.trim() : '';
+                    row.appendChild(td);
+                    return; // Skip further processing for this column
+                }
+
+                // Check if this is the "Clasificación" column (for predictions)
+                const isClassColumn = headerName === 'Clasificación';
 
                 // Apply color if it is the classification column and has content
                 if (isClassColumn && cell && cell.trim() !== '') {
@@ -949,36 +1040,25 @@ document.addEventListener('DOMContentLoaded', () => {
     // Removed immediate change listener
     // previsualizarCheckbox.addEventListener('change', updateArchivoView);
 
-    // Aceptar Button - Apply Changes and Disable Checkboxes
-    aceptarBtn.addEventListener('click', () => {
-        updateArchivoView();
-        allCheckboxes.forEach(cb => {
-            cb.disabled = true;
+    // Contextual Refresh Listeners
+    if (archiveRefreshBtn) {
+        archiveRefreshBtn.addEventListener('click', () => {
+            fileInput.value = ''; // Important: Allows re-selecting the same file
+            // csvData = []; // This was duplicated, csvRows is the main data source
+            csvHeader = [];
+            csvRows = [];
+            csvProbabilities = [];
+            currentFileBase64 = null;
+            fileLoaded = false;
+            updateArchivoView();
         });
-    });
+    }
 
-    // Restaurar Button - Enable Checkboxes (Unlock)
-    // Restaurar Button - Enable Checkboxes (Unlock)
-    restaurarBtn.addEventListener('click', () => {
-        // Unlock all checkboxes
-        allCheckboxes.forEach(cb => {
-            cb.disabled = false;
+    if (manualRefreshBtn) {
+        manualRefreshBtn.addEventListener('click', () => {
+            manualTableBody.innerHTML = '';
         });
-
-        // Reset File State
-        fileLoaded = false;
-        fileInput.value = ''; // Important: Allows re-selecting the same file
-        csvData = [];
-        csvHeader = [];
-        csvData = [];
-        csvHeader = [];
-        csvRows = [];
-        csvProbabilities = [];
-        currentFileBase64 = null;
-
-        // Update View
-        updateArchivoView();
-    });
+    }
 
     // --- Navigation Tab Switching ---
 
