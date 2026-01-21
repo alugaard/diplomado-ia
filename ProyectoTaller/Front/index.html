@@ -5,10 +5,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cargas</title>
-    <link rel="stylesheet" href="style.css?v=16">
+    <link rel="stylesheet" href="style.css?v=18">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
@@ -178,6 +179,43 @@
                     </div>
                 </div>
 
+                <!-- Dashboards View -->
+                <div class="dashboard-container hidden" id="dashboardView">
+                    <!-- Global History Chart -->
+                    <div class="chart-section">
+                        <h3>Distribución de Clasificaciones (Histórico Global)</h3>
+                        <div class="chart-wrapper">
+                            <canvas id="classificationChart"></canvas>
+                        </div>
+                    </div>
+
+                    <hr class="dashboard-divider">
+
+                    <!-- File Specific Chart -->
+                    <div class="chart-section">
+                        <h3>Distribución por Archivo</h3>
+                        <div class="selector-container">
+                            <label for="historyFileSelector">Seleccionar Archivo:</label>
+                            <select id="historyFileSelector" class="form-select">
+                                <option value="">-- Seleccionar --</option>
+                            </select>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="fileChart"></canvas>
+                        </div>
+                    </div>
+
+                    <hr class="dashboard-divider">
+
+                    <!-- Country Chart -->
+                    <div class="chart-section">
+                        <h3>Distribución por País</h3>
+                        <div class="chart-wrapper">
+                            <canvas id="countryChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </main>
     </div>
@@ -198,8 +236,8 @@
         </div>
     </div>
 
-    <script src="config.js?v=16"></script>
-    <script src="script.js?v=16"></script>
+    <script src="config.js?v=18"></script>
+    <script src="script.js?v=18"></script>
 </body>
 
 </html>

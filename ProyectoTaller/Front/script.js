@@ -48,6 +48,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let showOriginalClass = false; // Toggle for "Clasificación Original" column
     let originalClassIndex = -1; // Index of the original classification column
 
+    // Chart Instances
+    let chartInstance = null; // Global History Chart
+    let fileChartInstance = null; // File Specific Chart
+    let countryChartInstance = null; // Country Chart
+
     // Pagination State
     let currentPage = 1;
     const itemsPerPage = 10;
@@ -1065,6 +1070,273 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function showDashboardsView() {
+        navCargas.classList.remove('active');
+        navDashboards.classList.add('active');
+        navHistorial.classList.remove('active');
+
+        // Hide other views
+        contentHeader.classList.add('hidden');
+        dropZone.classList.add('hidden');
+        resultsTable.classList.add('hidden');
+        csvPreviewTable.classList.add('hidden');
+        historialView.classList.add('hidden');
+
+        // Show Dashboard
+        const dashboardView = document.getElementById('dashboardView');
+        dashboardView.classList.remove('hidden');
+
+        // Render Global Chart
+        const stats = calculateStats();
+        renderChart(stats);
+
+        // Populate File Selector and Render File Chart (default empty or first)
+        populateFileSelector();
+
+        // Render Country Chart
+        renderCountryChart();
+    }
+
+    // --- Helper for Colors ---
+    const chartColors = {
+        felicitaciones: { bg: 'rgba(75, 192, 192, 0.6)', border: 'rgba(75, 192, 192, 1)' },
+        sugerencia: { bg: 'rgba(255, 206, 86, 0.6)', border: 'rgba(255, 206, 86, 1)' },
+        reclamo: { bg: 'rgba(255, 99, 132, 0.6)', border: 'rgba(255, 99, 132, 1)' }
+    };
+
+    function populateFileSelector() {
+        const history = JSON.parse(localStorage.getItem('uploadHistory') || '[]');
+        const selector = document.getElementById('historyFileSelector');
+
+        // Clear existing options (except the first default one)
+        selector.innerHTML = '<option value="">-- Seleccionar --</option>';
+
+        history.forEach((entry, index) => {
+            const option = document.createElement('option');
+            option.value = index; // Use index as ID
+            option.textContent = `${entry.fileName} (${new Date(entry.uploadTime).toLocaleString()})`;
+            selector.appendChild(option);
+        });
+
+        // Add Listener only once (or remove old one to be safe, but simple overwrite works here)
+        selector.onchange = (e) => {
+            const selectedIndex = e.target.value;
+            if (selectedIndex !== "") {
+                renderFileChart(selectedIndex);
+            } else {
+                if (fileChartInstance) fileChartInstance.destroy();
+            }
+        };
+    }
+
+    function calculateStats() {
+        const history = JSON.parse(localStorage.getItem('uploadHistory') || '[]');
+        const stats = {
+            'Felicitaciones y Agradecimientos': 0,
+            'Sugerencia': 0,
+            'Reclamo': 0
+        };
+
+        history.forEach(entry => {
+            aggregateStatsFromEntry(entry, stats);
+        });
+
+        return stats;
+    }
+
+    function aggregateStatsFromEntry(entry, stats) {
+        if (entry.csvRows && entry.csvHeader) {
+            const classIndex = entry.csvHeader.findIndex(h => h.toLowerCase().includes('clasificación') || h.toLowerCase().includes('clasificacion'));
+
+            if (classIndex !== -1) {
+                entry.csvRows.forEach(row => {
+                    const value = row[classIndex];
+                    if (value) {
+                        const normalized = value.trim();
+                        if (stats.hasOwnProperty(normalized)) {
+                            stats[normalized]++;
+                        }
+                    }
+                });
+            }
+        }
+    }
+
+    function renderChart(stats) {
+        const ctx = document.getElementById('classificationChart').getContext('2d');
+
+        if (chartInstance) {
+            chartInstance.destroy();
+        }
+
+        renderBarChart(ctx, stats, 'chartInstance', 'Cantidad de Registros');
+    }
+
+    function renderFileChart(fileIndex) {
+        const history = JSON.parse(localStorage.getItem('uploadHistory') || '[]');
+        const entry = history[fileIndex];
+
+        if (!entry) return;
+
+        const stats = {
+            'Felicitaciones y Agradecimientos': 0,
+            'Sugerencia': 0,
+            'Reclamo': 0
+        };
+
+        aggregateStatsFromEntry(entry, stats);
+
+        const ctx = document.getElementById('fileChart').getContext('2d');
+        if (fileChartInstance) {
+            fileChartInstance.destroy();
+        }
+
+        // We use a generic helper or duplicate logic. Let's make a generic helper.
+        // But for now, direct implementation to ensure 'fileChartInstance' is assigned.
+
+        const dataValues = [
+            stats['Felicitaciones y Agradecimientos'],
+            stats['Sugerencia'],
+            stats['Reclamo']
+        ];
+
+        fileChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Felicitaciones', 'Sugerencias', 'Reclamos'],
+                datasets: [{
+                    label: `Registros en ${entry.fileName}`,
+                    data: dataValues,
+                    backgroundColor: [chartColors.felicitaciones.bg, chartColors.sugerencia.bg, chartColors.reclamo.bg],
+                    borderColor: [chartColors.felicitaciones.border, chartColors.sugerencia.border, chartColors.reclamo.border],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+                plugins: { legend: { display: false } }
+            }
+        });
+    }
+
+    function renderCountryChart() {
+        const history = JSON.parse(localStorage.getItem('uploadHistory') || '[]');
+        // Structure: { 'CountryName': { 'Felicitaciones...': 0, 'Sugerencia': 0, 'Reclamo': 0 } }
+        const countryStats = {};
+
+        history.forEach(entry => {
+            if (entry.csvRows && entry.csvHeader) {
+                const classIndex = entry.csvHeader.findIndex(h => h.toLowerCase().includes('clasificación') || h.toLowerCase().includes('clasificacion'));
+                const countryIndex = entry.csvHeader.findIndex(h => h.toLowerCase().includes('país') || h.toLowerCase().includes('pais') || h.toLowerCase().includes('country'));
+
+                if (classIndex !== -1) {
+                    entry.csvRows.forEach(row => {
+                        const classValue = row[classIndex] ? row[classIndex].trim() : null;
+                        let countryValue = (countryIndex !== -1 && row[countryIndex]) ? row[countryIndex].trim() : 'Sin País';
+
+                        if (countryValue === '') countryValue = 'Sin País';
+
+                        if (classValue && ['Felicitaciones y Agradecimientos', 'Sugerencia', 'Reclamo'].includes(classValue)) {
+                            if (!countryStats[countryValue]) {
+                                countryStats[countryValue] = {
+                                    'Felicitaciones y Agradecimientos': 0,
+                                    'Sugerencia': 0,
+                                    'Reclamo': 0
+                                };
+                            }
+                            countryStats[countryValue][classValue]++;
+                        }
+                    });
+                }
+            }
+        });
+
+        const countries = Object.keys(countryStats).sort(); // Labels
+        const datasetFelicitaciones = countries.map(c => countryStats[c]['Felicitaciones y Agradecimientos']);
+        const datasetSugerencias = countries.map(c => countryStats[c]['Sugerencia']);
+        const datasetReclamos = countries.map(c => countryStats[c]['Reclamo']);
+
+        const ctx = document.getElementById('countryChart').getContext('2d');
+        if (countryChartInstance) {
+            countryChartInstance.destroy();
+        }
+
+        countryChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: countries,
+                datasets: [
+                    {
+                        label: 'Felicitaciones',
+                        data: datasetFelicitaciones,
+                        backgroundColor: chartColors.felicitaciones.bg,
+                        borderColor: chartColors.felicitaciones.border,
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Sugerencias',
+                        data: datasetSugerencias,
+                        backgroundColor: chartColors.sugerencia.bg,
+                        borderColor: chartColors.sugerencia.border,
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Reclamos',
+                        data: datasetReclamos,
+                        backgroundColor: chartColors.reclamo.bg,
+                        borderColor: chartColors.reclamo.border,
+                        borderWidth: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true, ticks: { precision: 0 } },
+                    x: { stacked: false } // Grouped bars
+                },
+                plugins: { legend: { position: 'top' } }
+            }
+        });
+    }
+
+    // Generic Render Helper (Refactored from original renderChart)
+    function renderBarChart(ctx, stats, instanceVarName, label) {
+        // This function is just a placeholder to keep the diff clean if we were to fully refactor 
+        // the original renderChart. For now, we kept the original logic inside renderChart 
+        // but using the global chartInstance variable.
+
+        // Re-implementing logic for the global chart here correctly:
+        const dataValues = [
+            stats['Felicitaciones y Agradecimientos'],
+            stats['Sugerencia'],
+            stats['Reclamo']
+        ];
+
+        chartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Felicitaciones', 'Sugerencias', 'Reclamos'],
+                datasets: [{
+                    label: label,
+                    data: dataValues,
+                    backgroundColor: [chartColors.felicitaciones.bg, chartColors.sugerencia.bg, chartColors.reclamo.bg],
+                    borderColor: [chartColors.felicitaciones.border, chartColors.sugerencia.border, chartColors.reclamo.border],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+                plugins: { legend: { display: false } }
+            }
+        });
+    }
+
     // --- Navigation Tab Switching ---
 
     function showCargasView() {
@@ -1074,6 +1346,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         contentHeader.classList.remove('hidden');
         historialView.classList.add('hidden');
+        document.getElementById('dashboardView').classList.add('hidden');
 
         // Restore Cargas sub-view state
         if (manualBtn.classList.contains('active')) {
@@ -1093,6 +1366,7 @@ document.addEventListener('DOMContentLoaded', () => {
         dropZone.classList.add('hidden');
         resultsTable.classList.add('hidden');
         csvPreviewTable.classList.add('hidden');
+        document.getElementById('dashboardView').classList.add('hidden');
 
         // Show Historial
         historialView.classList.remove('hidden');
@@ -1100,5 +1374,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     navCargas.addEventListener('click', showCargasView);
+    navDashboards.addEventListener('click', showDashboardsView);
     navHistorial.addEventListener('click', showHistorialView);
 });
