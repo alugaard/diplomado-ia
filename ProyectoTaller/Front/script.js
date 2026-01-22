@@ -873,7 +873,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
     }
 
-    function predictAllCsv() {
+    async function predictAllCsv() {
         if (csvRows.length === 0) {
             alert("No hay datos para predecir.");
             return;
@@ -901,58 +901,75 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const fetchPromises = batches.map(batch => {
-            const batchBase64 = rowsToCsvBase64(csvHeader, batch.rows);
-            return fetch(`${API_BASE_URL}/predict_csv?model=${model}`, {
-                method: 'POST',
-                mode: 'cors',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    archivo: batchBase64
-                })
-            })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`Batch starting at ${batch.startIndex} failed: ${response.statusText}`);
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if (Array.isArray(data)) {
-                        data.forEach((item, index) => {
-                            const globalIndex = batch.startIndex + index;
-                            if (csvRows[globalIndex]) {
-                                if (item.prediccion) {
-                                    csvRows[globalIndex][classIndex] = item.prediccion;
-                                }
-                                // Store formatted probability text
-                                if (item.probabilidad) {
-                                    const probText = formatProbabilities(item.probabilidad);
-                                    csvProbabilities[globalIndex] = probText;
-                                }
-                            }
-                        });
-                    } else if (data.archivo) {
-                        // Handle case where server might return base64 instead of array
-                        console.warn("Received 'archivo' format in batch. This is unexpected for batched JSON processing.");
-                    }
-                });
-        });
+        const statusEl = document.getElementById('predictionStatus');
+        if (statusEl) {
+            statusEl.textContent = `Procesando lote 0 de ${batches.length}...`;
+            statusEl.classList.remove('hidden');
+        }
 
-        Promise.all(fetchPromises)
-            .then(() => {
+        try {
+            // Sequential processing with async/await
+            let batchCount = 0;
+            for (const batch of batches) {
+                batchCount++;
+                if (statusEl) {
+                    statusEl.textContent = `Procesando lote ${batchCount} de ${batches.length}...`;
+                }
+
+                const batchBase64 = rowsToCsvBase64(csvHeader, batch.rows);
+
+                const response = await fetch(`${API_BASE_URL}/predict_csv?model=${model}`, {
+                    method: 'POST',
+                    mode: 'cors',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        archivo: batchBase64
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Batch starting at index ${batch.startIndex} failed: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+
+                if (Array.isArray(data)) {
+                    data.forEach((item, index) => {
+                        const globalIndex = batch.startIndex + index;
+                        if (csvRows[globalIndex]) {
+                            if (item.prediccion) {
+                                csvRows[globalIndex][classIndex] = item.prediccion;
+                            }
+                            // Store formatted probability text
+                            if (item.probabilidad) {
+                                const probText = formatProbabilities(item.probabilidad);
+                                csvProbabilities[globalIndex] = probText;
+                            }
+                        }
+                    });
+                }
+
+                // Update UI incrementally after each batch
                 renderCurrentPage();
-                updateLatestHistoryEntry();
-            })
-            .catch(error => {
-                console.error('Error in batch processing:', error);
-                alert(`Error al procesar lotes: ${error.message}`);
-            })
-            .finally(() => {
-                setLoading(false);
-            });
+            }
+
+            if (statusEl) {
+                statusEl.textContent = '¡Procesamiento completo!';
+                setTimeout(() => {
+                    statusEl.classList.add('hidden');
+                }, 3000);
+            }
+
+            updateLatestHistoryEntry();
+        } catch (error) {
+            console.error('Error in sequential batch processing:', error);
+            alert(`Error al procesar lotes: ${error.message}`);
+            if (statusEl) statusEl.classList.add('hidden');
+        } finally {
+            setLoading(false);
+        }
     }
 
     function predictCsvRow(globalIndex, rowData, rowElement, btn) {
