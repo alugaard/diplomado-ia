@@ -27,8 +27,10 @@ BETO_MAX_LEN = 128
 # Variables globales (se cargan solo si se usa BETO)
 beto_model = None
 beto_tokenizer = None
-beto_encoder = None
 beto_device = None
+
+# Cargar el encoder globalmente para que esté disponible para todos los modelos desde el inicio
+beto_encoder = joblib.load(f"{BETO_ADAPTER_PATH}/label_encoder.pkl")
 
 def load_beto_once():
     global beto_model, beto_tokenizer, beto_encoder, beto_device
@@ -50,7 +52,6 @@ def load_beto_once():
     print(f"✅ DEBUG API: Dispositivo seleccionado: {beto_device}")
     
     # 1. Basics
-    beto_encoder = joblib.load(f"{BETO_ADAPTER_PATH}/label_encoder.pkl")
     num_labels = len(beto_encoder.classes_)
     beto_tokenizer = AutoTokenizer.from_pretrained(BETO_ADAPTER_PATH)
 
