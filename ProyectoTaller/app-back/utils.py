@@ -8,6 +8,10 @@ api_key = os.getenv("GEMINI_API_KEY")
 
 
 
+import torch
+# Optimización de CPU: Limitar hilos para evitar sobrecarga en peticiones paralelas
+torch.set_num_threads(4)
+
 # Cargar una vez al iniciar el servidor
 modelo_tfidf_logreg_clf = joblib.load("modelo_tfidf_logreg_clf.pkl")
 #modelo_gru = joblib.load("modelo_gru.pkl")
@@ -37,7 +41,13 @@ def load_beto_once():
     from transformers import AutoTokenizer, AutoModelForSequenceClassification
     from peft import PeftModel, LoraConfig, get_peft_model
 
-    beto_device = "cuda" if torch.cuda.is_available() else "cpu"
+    beto_device = "cpu"
+    if torch.cuda.is_available():
+        beto_device = "cuda"
+    elif torch.backends.mps.is_available():
+        beto_device = "mps"
+    
+    print(f"✅ DEBUG API: Dispositivo seleccionado: {beto_device}")
     
     # 1. Basics
     beto_encoder = joblib.load(f"{BETO_ADAPTER_PATH}/label_encoder.pkl")
@@ -78,6 +88,15 @@ def load_beto_once():
         
         # 5. Consolidate for maximum speed and accuracy
         beto_model = beto_model.merge_and_unload()
+        
+        # 6. DYNAMIC QUANTIZATION (Only for CPU)
+        if beto_device == "cpu":
+            print("🚀 DEBUG API: Aplicando Cuantización Dinámica (INT8) para CPU...")
+            beto_model = torch.quantization.quantize_dynamic(
+                beto_model, 
+                {torch.nn.Linear}, 
+                dtype=torch.qint8
+            )
     
     beto_model.to(beto_device)
     beto_model.eval()
