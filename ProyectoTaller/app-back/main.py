@@ -2,6 +2,8 @@
 import base64
 import io
 import json
+import re
+import unicodedata
 
 import pandas as pd
 
@@ -10,6 +12,8 @@ import requests
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from pydantic import BaseModel
+import nltk
+from nltk.corpus import stopwords
 
 from utils import predict_text, predict_texts,predict_textGeminis,predict_textclasico,predict_textsGeminis,predict_textsClasico
 
@@ -32,9 +36,9 @@ def predict():
         pred= None
         proba= None
         if modelo_elegido == 'beto':
-            pred, proba = predict_text(comentario)
+            pred, proba = predict_text(normalize_text(comentario))
         else : #modelo_elegido gru o tfidf
-            pred, proba = predict_textclasico(comentario)
+            pred, proba = predict_textclasico(normalize_text(comentario))
 
         resp = {"comentario": comentario, "prediccion": str(pred), "probabilidad": proba}
     else:
@@ -46,6 +50,7 @@ def predict():
 # Pruebas con archivo en base64(csv). saca de la primera columna del csv los comentarios a evaluar
 @app.route("/predict_csv", methods=["POST"])
 def predict_csv():
+    nltk.download('stopwords')
     modelo_elegido = request.args.get('model', 'beto')
     data = request.get_json(silent=True) or {}
 
@@ -75,13 +80,36 @@ def predict_csv():
 
     # Obtengo los comentarios de la primera columna
     comentarios = df.iloc[:, 0].astype(str).tolist()
+    comentarios_normalizados = []
+    for comentario in comentarios:
+        comentarios_normalizados.append(normalize_text(comentario))
+
+    #spanish_stop_words = stopwords.words('spanish')
+    #sentiment_protectors = ['no', 'sin', 'pero', 'mucho', 'muy']
+    #for word in sentiment_protectors:
+    #    if word in spanish_stop_words:
+    #        spanish_stop_words.remove(word)
+    #company_noise = ['sistema', 'sistemas', 'equipo', 'equipos', 'software', 'herramientas', 'trabajar', 'archivo', 'excel', 'intranet']
+
+    
+    #normalized_stop_words = [normalize_text(word) for word in spanish_stop_words]
+    #normalized_stop_words.extend(company_noise)
+
+    #def remove_stop_words(text: str) -> str:
+    #    words = text.split()
+    #    filtered = [w for w in words if w not in normalized_stop_words]
+    #    return " ".join(filtered)
+    
+    #comentarios_normalizados_sin_stopwords = []
+    #for comentario in comentarios_normalizados:
+    #    comentarios_normalizados_sin_stopwords.append(remove_stop_words(comentario))
 
     # Predicción
     if modelo_elegido != "gemini":
         if modelo_elegido == 'beto':
-            preds, probas, class_names = predict_texts(comentarios)
+            preds, probas, class_names = predict_texts(comentarios_normalizados)
         if modelo_elegido == 'tfidf':
-            preds, probas, class_names = predict_textsClasico(comentarios)
+            preds, probas, class_names = predict_textsClasico(comentarios_normalizados)
     else :
         preds, probas, class_names = predict_textsGeminis(comentarios)
 
@@ -106,6 +134,14 @@ def predict_geminis(comentario):
         "probabilidad": proba
     }
     return resp
+
+def normalize_text(text: str) -> str:
+    text = text.lower()
+    text = unicodedata.normalize("NFD", text)
+    text = ''.join(ch for ch in text if unicodedata.category(ch) != 'Mn')
+    text = re.sub(r"[^a-z0-9ñ ]", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
 
 
 if __name__ == "__main__":

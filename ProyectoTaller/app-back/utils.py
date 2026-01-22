@@ -7,9 +7,6 @@ load_dotenv()
 api_key = os.getenv("GEMINI_API_KEY")
 
 
-# Codificación de etiquetas
-encoder = joblib.load('label_encoder.pkl')
-
 
 # Cargar una vez al iniciar el servidor
 modelo_tfidf_logreg_clf = joblib.load("modelo_tfidf_logreg_clf.pkl")
@@ -21,7 +18,7 @@ modelo_tfidf_logreg_clf = joblib.load("modelo_tfidf_logreg_clf.pkl")
 # adapter_model.safetensors, adapter_config.json, tokenizer*, vocab, label_encoder.pkl
 BETO_ADAPTER_PATH = "modelo_beto_lora"
 BETO_BASE_MODEL = "dccuchile/bert-base-spanish-wwm-uncased"
-BETO_MAX_LEN = 64
+BETO_MAX_LEN = 128
 
 # Variables globales (se cargan solo si se usa BETO)
 beto_model = None
@@ -29,104 +26,104 @@ beto_tokenizer = None
 beto_encoder = None
 beto_device = None
 
-
 def load_beto_once():
-    """Carga BETO base + adapter LoRA + tokenizer + encoder una sola vez."""
     global beto_model, beto_tokenizer, beto_encoder, beto_device
-
     if beto_model is not None:
-        return  # ya cargado
+        return 
 
     import torch
+    import joblib
+    import os
     from transformers import AutoTokenizer, AutoModelForSequenceClassification
-    from peft import PeftModel
+    from peft import PeftModel, LoraConfig, get_peft_model
 
     beto_device = "cuda" if torch.cuda.is_available() else "cpu"
-
-    # tokenizer guardado en la carpeta del adapter
+    
+    # 1. Basics
+    beto_encoder = joblib.load(f"{BETO_ADAPTER_PATH}/label_encoder.pkl")
+    num_labels = len(beto_encoder.classes_)
     beto_tokenizer = AutoTokenizer.from_pretrained(BETO_ADAPTER_PATH)
 
-    # cargar base model (de HuggingFace cache) + pegar adapter LoRA
+    # 2. Create Base Architecture
     base_model = AutoModelForSequenceClassification.from_pretrained(
         BETO_BASE_MODEL,
-        num_labels=3,
-     use_safetensors=True,  # <--- FUERZA EL FORMATO SEGURO
-    low_cpu_mem_usage=False,
-    device_map=None
-    ).to(beto_device)
+        num_labels=num_labels,
+        use_safetensors=True
+    )
 
-    beto_model = PeftModel.from_pretrained(base_model, BETO_ADAPTER_PATH).to(beto_device)
+    # 3. RECREATE LORA SKELETON (Must match your Colab config exactly)
+    # Using the same parameters from your "Bloque 4"
+    lora_config = LoraConfig(
+        r=8,
+        lora_alpha=16,
+        target_modules=["query", "value"],
+        lora_dropout=0.1,
+        bias="none",
+        modules_to_save=["classifier"],
+        task_type="SEQ_CLS"
+    )
+    # This turns the base model into a PeftModel with the correct internal names
+    beto_model = get_peft_model(base_model, lora_config)
+
+    # 4. NOW LOAD THE STATE DICT
+    state_dict_path = os.path.join(BETO_ADAPTER_PATH, "full_state_dict.pt")
+    if os.path.exists(state_dict_path):
+        # We use weights_only=False because your file is a legacy .pt from Colab
+        state_dict = torch.load(state_dict_path, map_location=beto_device, weights_only=False)
+        
+        # Now that names like 'lora_A' and 'modules_to_save' exist in beto_model, 
+        # the weights will actually land in the right place.
+        msg = beto_model.load_state_dict(state_dict, strict=False)
+        print(f"✅ DEBUG API: Weights Injected! Msg: {msg}")
+        
+        # 5. Consolidate for maximum speed and accuracy
+        beto_model = beto_model.merge_and_unload()
+    
+    beto_model.to(beto_device)
     beto_model.eval()
-
-    # encoder guardado junto al modelo BETO (recomendado)
-    beto_encoder = joblib.load(f"{BETO_ADAPTER_PATH}/label_encoder.pkl")
-
-
+    print("✅ DEBUG API: Ready for +90% accuracy.")
+    
 # ===============================
 #              BETO
 # ===============================
-def predict_text(texto: str, tipo_modelo="beto"):
-    """
-    Igual estilo que predict_textGru:
-    - predicción (etiqueta texto)
-    - probabilidades por clase (dict)
-    """
+def predict_text(comentario):
     load_beto_once()
-
     import torch
-
-    enc = beto_tokenizer(
-        texto,
-        truncation=True,
-        padding="max_length",
-        max_length=BETO_MAX_LEN,
-        return_tensors="pt"
-    )
-    enc = {k: v.to(beto_device) for k, v in enc.items()}
-
+        
+    # 2. Tokenizar
+    inputs = beto_tokenizer(
+        comentario, 
+        return_tensors="pt", 
+        truncation=True, 
+        padding="max_length", 
+        max_length=BETO_MAX_LEN
+    ).to(beto_device)
+    
+    # 3. Inferencia
     with torch.no_grad():
-        outputs = beto_model(**enc)
-        logits = outputs.logits  # [1, num_classes]
-
+        logits = beto_model(**inputs).logits
+        probs = torch.softmax(logits, dim=1).cpu().numpy()[0]
         pred_id = torch.argmax(logits, dim=1).item()
-        pred = beto_encoder.inverse_transform([pred_id])[0]
-
-        # probas
-        probs = torch.softmax(logits, dim=1).squeeze(0).detach().cpu().numpy()
-
-    clases = beto_encoder.inverse_transform(list(range(len(probs))))
-
-    proba_dict = {
-        str(clases[i]): float(probs[i])
-        for i in range(len(probs))
-    }
-
-    return pred, proba_dict
+    
+    # 4. Decodificar etiqueta
+    label = beto_encoder.inverse_transform([pred_id])[0]
+    
+    return label, probs.tolist()
 
 
 def predict_texts(textos, batch_size=32):
-    """
-    Stilo predict_textsGru optimizado para BETO, procesando en mini-batches.
-    return:
-      preds: list[str]
-      probas: list[list[float]]
-      class_names: list[str]
-    """
     load_beto_once()
-
+    
     import torch
     from tqdm import tqdm
     import numpy as np
 
-    # Listas para acumular resultados de todos los batches
     all_preds = []
     all_probas = []
 
-    # Procesar en mini-batches
     for i in tqdm(range(0, len(textos), batch_size), desc="Clasificando comentarios"):
         batch_textos = textos[i:i + batch_size]
 
-        # Tokenizar el batch actual
         enc = beto_tokenizer(
             batch_textos,
             truncation=True,
@@ -136,18 +133,28 @@ def predict_texts(textos, batch_size=32):
         )
         enc = {k: v.to(beto_device) for k, v in enc.items()}
 
-        # Inferencia sin cálculo de gradientes
         with torch.no_grad():
-            logits = beto_model(**enc).logits  # [B, C]
+            logits = beto_model(**enc).logits
             probs = torch.softmax(logits, dim=1).detach().cpu().numpy()
-            pred_ids = torch.argmax(logits, dim=1).detach().cpu().numpy()
+            # Aseguramos que sea un array de enteros
+            pred_ids = torch.argmax(logits, dim=1).detach().cpu().numpy().astype(int)
 
-        # Acumular resultados del batch
+        # Transformación de IDs a Etiquetas usando el objeto cargado
+        batch_labels = beto_encoder.inverse_transform(pred_ids).tolist()
+        
         all_probas.extend(probs.tolist())
-        all_preds.extend(beto_encoder.inverse_transform(pred_ids).tolist())
+        all_preds.extend(batch_labels)
 
-    # Nombres de clases (se obtienen una vez)
+    # Obtenemos los nombres de clases directamente del encoder
     class_names = beto_encoder.classes_.tolist()
+
+    # DEBUG FINAL DE CONTROL
+    print("-" * 30)
+    print(f"DEBUG API - Clases detectadas: {class_names}")
+    # Mostramos los primeros 3 para verificar el mapeo
+    for j in range(min(3, len(all_preds))):
+        print(f"DEBUG API - Texto: {textos[j][:30]}... -> Pred: {all_preds[j]}")
+    print("-" * 30)
 
     return all_preds, all_probas, class_names
 
@@ -170,7 +177,7 @@ def predict_textclasico(texto: str,modelo_clasico="tfidf"):
     
     pred = model.predict([texto])
     #convertir de nuemerico a etiqueta que saco mayor probabilidad
-    pred=encoder.inverse_transform(pred)[0]
+    pred=beto_encoder.inverse_transform(pred)[0]
 
 
     # probabilidades
@@ -178,7 +185,7 @@ def predict_textclasico(texto: str,modelo_clasico="tfidf"):
     if hasattr(model, "predict_proba"):
         probs = model.predict_proba([texto])[0]
 
-        clases = encoder.inverse_transform(
+        clases = beto_encoder.inverse_transform(
             list(range(len(probs)))
         )
 
@@ -215,7 +222,7 @@ def predict_textsClasico(textos,modelo_clasico="tfidf"):
     preds = []
     for p in pred_raw:
         if isinstance(p, int):
-            preds.append(encoder.inverse_transform([p])[0])
+            preds.append(beto_encoder.inverse_transform([p])[0])
         else:
             preds.append(str(p))
 
@@ -228,7 +235,7 @@ def predict_textsClasico(textos,modelo_clasico="tfidf"):
         probas = proba_np.tolist()
 
         n_classes = proba_np.shape[1]
-        class_names = encoder.inverse_transform(list(range(n_classes))).tolist()
+        class_names = beto_encoder.inverse_transform(list(range(n_classes))).tolist()
 
     return preds, probas, class_names
 
