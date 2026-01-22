@@ -12,8 +12,8 @@ import requests
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from pydantic import BaseModel
-import nltk
-from nltk.corpus import stopwords
+#import nltk
+#from nltk.corpus import stopwords
 
 from utils import predict_text, predict_texts,predict_textGeminis,predict_textclasico,predict_textsGeminis,predict_textsClasico
 
@@ -50,7 +50,7 @@ def predict():
 # Pruebas con archivo en base64(csv). saca de la primera columna del csv los comentarios a evaluar
 @app.route("/predict_csv", methods=["POST"])
 def predict_csv():
-    nltk.download('stopwords')
+    #nltk.download('stopwords')
     modelo_elegido = request.args.get('model', 'beto')
     data = request.get_json(silent=True) or {}
 
